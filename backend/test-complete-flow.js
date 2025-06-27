@@ -5,7 +5,6 @@ dotenv.config();
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 
-// Test the complete EchoCare flow
 async function testCompleteFlow() {
   console.log('🧪 Testing Complete EchoCare Flow...\n');
 
@@ -13,13 +12,13 @@ async function testCompleteFlow() {
     // Step 1: Create Patient and Medication Schedule
     console.log('📝 Step 1: Creating patient and medication schedule...');
     const patientData = {
-      phoneNumber: '+1234567890',
-      name: 'John Doe',
+      phoneNumber: '+9197738336824',
+      name: 'Prince',
       language: 'en',
       medicationName: 'Aspirin',
       dosage: '100mg',
       frequency: 'daily',
-      timeSlots: ['09:00', '18:00'],
+      timeSlots: ['09:00', '15:10', '18:00'],
       instructions: 'Take with food',
       startDate: new Date().toISOString().split('T')[0],
       endDate: null,

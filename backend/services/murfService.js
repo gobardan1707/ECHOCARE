@@ -21,43 +21,48 @@ class MurfWebSocket extends EventEmitter {
 
   // Initialize WebSocket connection to Murf AI using official API
   async connect(contextId = null) {
-    try {
-      console.log('Connecting to Murf AI WebSocket for real-time TTS...');
-      
-      // Use the official WebSocket URL from documentation
-      const wsUrl = `wss://api.murf.ai/v1/speech/stream-input?api-key=${process.env.MURF_API_KEY}&sample_rate=44100&channel_type=MONO&format=WAV`;
-      
-      this.ws = new WebSocket(wsUrl);
-      this.contextId = contextId;
-
-      this.ws.on('open', () => {
-        console.log('✅ Connected to Murf AI WebSocket for real-time TTS');
-        this.isConnected = true;
-        this.reconnectAttempts = 0;
-        this.emit('connected');
-      });
-
-      this.ws.on('message', (data) => {
-        this.handleMessage(JSON.parse(data));
-      });
-
-      this.ws.on('close', () => {
-        console.log('❌ Murf AI WebSocket connection closed');
-        this.isConnected = false;
-        this.emit('disconnected');
-        this.reconnect();
-      });
-
-      this.ws.on('error', (error) => {
-        console.error('❌ Murf AI WebSocket error:', error);
-        this.emit('error', error);
-      });
-
-    } catch (error) {
-      console.error('❌ Failed to connect to Murf AI WebSocket:', error);
-      throw error;
-    }
+  if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) {
+    return new Promise((resolve, reject) => {
+      if (this.ws.readyState === WebSocket.OPEN) return resolve();
+      this.ws.once('open', () => resolve());
+      this.ws.once('error', (err) => reject(err));
+    });
   }
+
+  console.log('Connecting to Murf AI WebSocket for real-time TTS...');
+  this.contextId = contextId;
+
+  return new Promise((resolve, reject) => {
+    const wsUrl = `wss://api.murf.ai/v1/speech/stream-input?api-key=${process.env.MURF_API_KEY}&sample_rate=44100&channel_type=MONO&format=WAV`;
+    this.ws = new WebSocket(wsUrl);
+
+    this.ws.on('open', () => {
+      console.log('✅ Connected to Murf AI WebSocket for real-time TTS');
+      this.isConnected = true;
+      this.reconnectAttempts = 0;
+      this.emit('connected');
+      resolve();
+    });
+
+    this.ws.on('message', (data) => {
+      this.handleMessage(JSON.parse(data));
+    });
+
+    this.ws.on('close', () => {
+      console.log('❌ Murf AI WebSocket connection closed');
+      this.isConnected = false;
+      this.emit('disconnected');
+      this.reconnect();
+    });
+
+    this.ws.on('error', (error) => {
+      console.error('❌ Murf AI WebSocket error:', error);
+      this.emit('error', error);
+      reject(error);
+    });
+  });
+}
+
 
   // Handle incoming WebSocket messages based on official API
   handleMessage(data) {
@@ -67,7 +72,7 @@ class MurfWebSocket extends EventEmitter {
       this.handleAudioChunk(data);
     }
     
-    if (data.isFinalAudio) {
+    if (data.final) {
       this.handleStreamingComplete();
     }
     

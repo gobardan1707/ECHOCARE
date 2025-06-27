@@ -5,6 +5,7 @@
 CREATE OR REPLACE FUNCTION create_patients_table()
 RETURNS void AS $$
 BEGIN
+    SET search_path = public;
     -- Create patients table if it doesn't exist
     CREATE TABLE IF NOT EXISTS patients (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -42,6 +43,7 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION create_medication_schedules_table()
 RETURNS void AS $$
 BEGIN
+    SET search_path = public;
     -- Create medication_schedules table if it doesn't exist
     CREATE TABLE IF NOT EXISTS medication_schedules (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -77,6 +79,7 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION create_call_schedules_table()
 RETURNS void AS $$
 BEGIN
+    SET search_path = public;
     -- Create call_schedules table if it doesn't exist
     CREATE TABLE IF NOT EXISTS call_schedules (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -112,6 +115,7 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION create_health_checks_table()
 RETURNS void AS $$
 BEGIN
+    SET search_path = public;
     -- Create health_checks table if it doesn't exist
     CREATE TABLE IF NOT EXISTS health_checks (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -174,6 +178,7 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION create_remaining_tables()
 RETURNS void AS $$
 BEGIN
+    SET search_path = public;
     -- Create medication_adherence table
     CREATE TABLE IF NOT EXISTS medication_adherence (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),

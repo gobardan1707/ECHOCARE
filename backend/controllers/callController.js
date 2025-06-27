@@ -54,6 +54,7 @@ export const initiateCall = async (req, res) => {
 // Handle incoming call webhook
 export const handleCallWebhook = async (req, res) => {
   try {
+    req.sid = req.body.CallSid;
     await TwilioService.handleCallWebhook(req, res);
   } catch (error) {
     console.error('Error handling call webhook:', error);
@@ -88,49 +89,18 @@ export const handleFollowUp = async (req, res) => {
       console.error('Call session not found for SID:', callSid);
       return res.status(404).send('Call session not found');
     }
+await TwilioService.handleFollowUp(req, res);
 
-    const twiml = new (await import('twilio')).twiml.VoiceResponse();
-    
-    // Store follow-up response
-    callSession.conversationHistory.push({
-      speaker: 'patient',
-      text: followUpResponse,
-      timestamp: new Date()
-    });
 
-    // Get final AI response
-    const patientContext = {
-      name: callSession.patientName,
-      medication: callSession.medicationName,
-      dosage: callSession.dosage,
-      instructions: callSession.instructions,
-      conversationHistory: callSession.conversationHistory
-    };
+    // // End call with goodbye message
+    // const goodbyeText = TwilioService.getGoodbyeText(callSession);
+    // const goodbyeAudioUrl = await MurfService.generateAudio(
+    //   goodbyeText,
+    //   callSession.language,
+    //   callSession.voiceProfile
+    // );
 
-    const finalResponse = await GeminiService.getHealthResponse(
-      followUpResponse,
-      patientContext,
-      callSession.language
-    );
-
-    // Generate final audio
-    const audioUrl = await MurfService.generateRealTimeAudio(
-      finalResponse,
-      callSession.language,
-      callSession.voiceProfile
-    );
-
-    twiml.play(audioUrl);
-
-    // End call with goodbye message
-    const goodbyeText = TwilioService.getGoodbyeText(callSession);
-    const goodbyeAudioUrl = await MurfService.generateAudio(
-      goodbyeText,
-      callSession.language,
-      callSession.voiceProfile
-    );
-
-    twiml.play(goodbyeAudioUrl);
+    // twiml.play(goodbyeAudioUrl);
     twiml.hangup();
 
     // Clean up call session
@@ -150,6 +120,8 @@ export const handleFollowUp = async (req, res) => {
 // Handle call status callback
 export const handleCallStatusCallback = async (req, res) => {
   try {
+    req.sid = req.body.CallSid ;
+    req.status = req.body.CallStatus
     await TwilioService.handleCallStatusCallback(req, res);
   } catch (error) {
     console.error('Error handling call status callback:', error);
