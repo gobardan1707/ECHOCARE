@@ -1,4 +1,38 @@
-# ECHOCARE Database Setup Guide
+# EchoCare Database Setup Guide
+
+This guide will help you set up the EchoCare database using the idempotent migration system.
+
+## Prerequisites
+
+1. **Supabase Account**: You need a Supabase project set up
+2. **Environment Variables**: Configure your `.env` file with database credentials
+3. **Node.js**: Ensure you have Node.js 18+ installed
+
+## Quick Setup
+
+1. **Install Dependencies**
+
+   ```bash
+   npm install
+   ```
+
+2. **Configure Environment**
+
+   ```bash
+   cp .env.example .env
+   # Edit .env file with your actual Supabase credentials
+   ```
+
+3. **Initialize Database**
+
+   ```bash
+   npm run setup-db
+   ```
+
+4. **Start the Application**
+   ```bash
+   npm start
+   ```
 
 ## Environment Variables Required
 
@@ -38,16 +72,19 @@ LOG_FILE_PATH=./logs/app.log
 ## Database Initialization Steps
 
 ### 1. Set up Supabase Project
+
 1. Create a new Supabase project at https://supabase.com
 2. Get your project URL and API keys from the project settings
 3. Update your `.env` file with the Supabase credentials
 
 ### 2. Run Database Schema
+
 1. Connect to your Supabase database using the SQL editor
 2. Run the contents of `schema/schema.sql` to create all tables and functions
 3. Run the contents of `schema/migrations.sql` to create the stored procedures
 
 ### 3. Initialize Database from Application
+
 1. Start your Node.js application
 2. The `initializeDatabase()` function will be called automatically
 3. Check the console for any initialization errors
@@ -80,17 +117,14 @@ The ECHOCARE database consists of 8 main tables:
 After initialization, you can test the database connection:
 
 ```javascript
-import { supabase } from './config/database.js';
+import { supabase } from "./config/database.js";
 
 // Test connection
-const { data, error } = await supabase
-  .from('patients')
-  .select('*')
-  .limit(1);
+const { data, error } = await supabase.from("patients").select("*").limit(1);
 
 if (error) {
-  console.error('Database connection error:', error);
+  console.error("Database connection error:", error);
 } else {
-  console.log('Database connection successful');
+  console.log("Database connection successful");
 }
-``` 
+```

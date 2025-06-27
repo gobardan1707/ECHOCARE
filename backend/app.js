@@ -1,33 +1,61 @@
-import express from 'express';
-import cors from 'cors';
-import bodyParser from 'body-parser';
-import cron from 'node-cron';
-import dotenv from 'dotenv';
-import routes from './routes/routes.js';
-import { SchedulerService } from './services/schedulerService.js';
-
+import express from "express";
+import cors from "cors";
+import bodyParser from "body-parser";
+import cron from "node-cron";
+import dotenv from "dotenv";
+import routes from "./routes/routes.js";
+import { SchedulerService } from "./services/schedulerService.js";
+import { initializeDatabase } from "./config/setup.js"; // this runs the SQL file
+import { checkDatabaseSchema } from "./config/database.js"; // optional validator
 
 dotenv.config();
 const app = express();
 
-// middleware 
+// middleware
 app.use(cors());
 app.use(bodyParser.json());
+app.use(express.urlencoded({ extended: true })); // Add this middleware
 
 // routes
-app.use('/api',routes);
+app.use("/api", routes);
 
-// Initialize the call scheduler
-SchedulerService.initializeScheduler();
+// Initialization function
+const initializeApp = async () => {
+  console.log("🚀 Starting EchoCare Backend...");
 
-//cron exmaples 
-cron.schedule('0 0 * * *', () => {
-    console.log('cron job running every min');
-    });
+  try {
+    // STEP 1: Initialize schema
+    console.log("📊 Running DB migration...");
+    await initializeDatabase();
+    console.log("✅ Migration complete");
 
-    // start server 
+    // STEP 2: Optionally verify
+    const dbValid = await checkDatabaseSchema();
+    if (!dbValid) {
+      console.error("❌ Schema check failed. Exiting...");
+      process.exit(1);
+    }
 
-    const PORT = process.env.PORT || 3000;
-    app.listen(PORT,()=>{
-        console.log(`server is running on port ${PORT}`);
-    });
+    // STEP 3: Initialize scheduler
+    console.log("⏰ Initializing scheduler...");
+    SchedulerService.initializeScheduler();
+
+    console.log("✅ App initialization complete");
+  } catch (error) {
+    console.error("❌ Initialization failed:", error);
+    process.exit(1);
+  }
+};
+
+// Start app after full initialization
+initializeApp();
+
+cron.schedule("0 0 * * *", () => {
+  console.log("🕐 Daily cron job running...");
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`🌟 EchoCare server is running on port ${PORT}`);
+  console.log(`📋 API endpoints available at http://localhost:${PORT}/api`);
+});

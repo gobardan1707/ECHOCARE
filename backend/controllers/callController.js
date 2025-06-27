@@ -54,6 +54,7 @@ export const initiateCall = async (req, res) => {
 // Handle incoming call webhook
 export const handleCallWebhook = async (req, res) => {
   try {
+    req.sid = req.body.CallSid;
     await TwilioService.handleCallWebhook(req, res);
   } catch (error) {
     console.error('Error handling call webhook:', error);
@@ -150,6 +151,9 @@ export const handleFollowUp = async (req, res) => {
 // Handle call status callback
 export const handleCallStatusCallback = async (req, res) => {
   try {
+    console.log('Call status callback received:', req.body);
+    req.sid = req.body.CallSid ;
+    req.status = req.body.CallStatus
     await TwilioService.handleCallStatusCallback(req, res);
   } catch (error) {
     console.error('Error handling call status callback:', error);

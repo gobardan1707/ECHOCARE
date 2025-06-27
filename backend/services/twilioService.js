@@ -59,7 +59,6 @@ export class TwilioService {
         }
       });
 
-      // Store call session
       this.activeCalls.set(call.sid, callSession);
       
       return call;
@@ -70,7 +69,13 @@ export class TwilioService {
   }
 
   static async handleCallWebhook(req, res) {
-    const callSid = req.body.CallSid;
+    const callSid = req.sid
+    
+    if (!callSid) {
+      console.error('CallSid not found in request');
+      return res.status(400).send('CallSid not found');
+    }
+    
     const callSession = this.activeCalls.get(callSid);
     
     if (!callSession) {
@@ -224,6 +229,7 @@ export class TwilioService {
     const callSid = req.body.CallSid;
     const callSession = this.activeCalls.get(callSid);
     const patientResponse = req.body.SpeechResult;
+    console.log('Patient response:', patientResponse);
     
     if (!callSession) {
       console.error('Call session not found for SID:', callSid);
@@ -299,7 +305,7 @@ export class TwilioService {
 
       } catch (wsError) {
         console.error('WebSocket TTS failed, using fallback:', wsError);
-        // Fallback to traditional method
+        
         const audioUrl = await MurfService.generateRealTimeAudio(
           aiResponse,
           callSession.language,
@@ -307,7 +313,7 @@ export class TwilioService {
         );
         twiml.play(audioUrl);
         
-        // Ask follow-up question
+        
         await this.handleFollowUpQuestion(twiml, callSession, res, patientResponse, patientContext);
       }
 
@@ -468,12 +474,11 @@ export class TwilioService {
   }
 
   static async handleCallStatusCallback(req, res) {
-    const callSid = req.body.CallSid;
-    const callStatus = req.body.CallStatus;
+    const callSid = req.sid;
+    const callStatus = req.status;
     
     console.log(`Call ${callSid} status: ${callStatus}`);
     
-    // Clean up call session when call ends
     if (['completed', 'failed', 'busy', 'no-answer'].includes(callStatus)) {
       this.activeCalls.delete(callSid);
     }
@@ -481,7 +486,6 @@ export class TwilioService {
     res.status(200).send('OK');
   }
 
-  // Get active call sessions (for debugging/monitoring)
   static getActiveCalls() {
     return Array.from(this.activeCalls.entries()).map(([sid, session]) => ({
       callSid: sid,

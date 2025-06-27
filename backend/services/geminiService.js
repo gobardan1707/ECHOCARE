@@ -8,7 +8,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 export class GeminiService {
   static async getHealthResponse(patientResponse, patientContext, language = 'en') {
     try {
-      const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
       const prompt = `
         You are a compassionate healthcare AI assistant. The patient has responded: "${patientResponse}"
