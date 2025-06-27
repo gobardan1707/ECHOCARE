@@ -6,6 +6,7 @@ import fs from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { fileURLToPath } from 'url';
+import WebSocket from 'ws';
 
 dotenv.config();
 
@@ -16,6 +17,7 @@ const __dirname = path.dirname(__filename);
 export class TwilioService {
   // Store active call sessions for real-time processing
   static activeCalls = new Map();
+  static twilioMediaSockets = new Map();
 
   static async initiateCall(phoneNumber, medicationData, language = 'en') {
     try {
@@ -53,11 +55,10 @@ export class TwilioService {
 statusCallbackEvent: ['initiated', 'ringing', 'answered', 'in-progress', 'completed'],
         statusCallbackMethod: 'POST',
         machineDetection: 'Enable',
-        machineDetectionTimeout: 40,
+        machineDetectionTimeout: 60,
         machineDetectionSpeechThreshold: 3000,
         machineDetectionSpeechEndThreshold: 1000,
         machineDetectionSilenceTimeout: 10000,
-        // Pass session data as custom parameters
         customParameters: {
           patientId,
           language,
@@ -115,166 +116,142 @@ statusCallbackEvent: ['initiated', 'ringing', 'answered', 'in-progress', 'comple
 
   static async handleGreeting(twiml, callSession, res) {
   const greetingText = this.getGreetingText(callSession);
-
-  // Prepare audio buffer collection
   const audioChunks = [];
 
-  // Define cleanup logic to remove old listeners
   const cleanupListeners = () => {
     murfWebSocket.removeAllListeners('audioChunk');
     murfWebSocket.removeAllListeners('streamingComplete');
+    if (murfWebSocket?.disconnect) murfWebSocket.disconnect();
   };
 
   try {
-    // 1. Connect and attach listeners BEFORE starting TTS
+    cleanupListeners();
     await murfWebSocket.connect();
 
-    // 2. Setup listeners
     murfWebSocket.on('audioChunk', ({ audioChunk }) => {
       audioChunks.push(audioChunk);
     });
 
     return new Promise(async (resolve, reject) => {
       murfWebSocket.on('streamingComplete', async ({ isFinal }) => {
-  if (isFinal) {
-    const completeAudio = Buffer.concat(audioChunks);
-     const filename = `${uuidv4()}.wav`;
-    const audioDir = path.join(__dirname, '..', 'public', 'audio');
-    const filePath = path.join(audioDir, filename);
-
-    // ✅ Ensure the directory exists before writing
-    if (!fs.existsSync(audioDir)) {
-      fs.mkdirSync(audioDir, { recursive: true });
-    }
-    fs.writeFileSync(filePath, completeAudio);
-
-   const audioUrl = `${process.env.BASE_URL}/audio/${filename}`;
-    twiml.play(audioUrl);
-    callSession.currentStep = 'health_check';
-    twiml.redirect(
-    { method: 'POST' }, `${process.env.BASE_URL}/api/calls/webhook`
-  );
-    res.type('text/xml').send(twiml.toString());
-
-    cleanupListeners();
-    resolve();
-  }
-});
-
-      // 3. Start TTS after listeners are ready
-      await murfWebSocket.startRealTimeTTS(
-        greetingText,
-        callSession.language,
-        callSession.voiceProfile
-      );
-
-      // 4. Timeout fallback if WebSocket hangs
-      setTimeout(() => {
-        cleanupListeners();
-        reject(new Error('WebSocket TTS timeout'));
-      }, 20000);
-    });
-
-  } catch (error) {
-    console.error('WebSocket TTS failed:', error);
-    cleanupListeners();
-    
-    // Optionally: end the call or say an apology using Twilio fallback
-    twiml.say({
-      voice: 'alice',
-      language: callSession.language
-    }, 'Sorry, the service is currently unavailable.');
-
-    res.type('text/xml');
-    res.send(twiml.toString());
-  }
-}
-
-
-  static async handleHealthCheck(twiml, callSession, res) {
-  const healthQuestionText = this.getHealthQuestionText(callSession);
-  const audioChunks = [];
-
-  const cleanupListeners = () => {
-    murfWebSocket.removeAllListeners('audioChunk');
-    murfWebSocket.removeAllListeners('streamingComplete');
-  };
-
-  try {
-    await murfWebSocket.connect();
-
-    // Attach listeners before streaming starts
-    murfWebSocket.on('audioChunk', ({ audioChunk }) => {
-      audioChunks.push(audioChunk);
-    });
-
-    return new Promise(async (resolve, reject) => {
-      murfWebSocket.on('streamingComplete', ({ isFinal }) => {
         if (isFinal) {
-           const completeAudio = Buffer.concat(audioChunks);
-     const filename = `${uuidv4()}.wav`;
-    const audioDir = path.join(__dirname, '..', 'public', 'audio');
-    const filePath = path.join(audioDir, filename);
+          const completeAudio = Buffer.concat(audioChunks);
+          const filename = `${uuidv4()}.wav`;
+          const audioDir = path.join(__dirname, '..', 'public', 'audio');
+          const filePath = path.join(audioDir, filename);
 
-    // ✅ Ensure the directory exists before writing
-    if (!fs.existsSync(audioDir)) {
-      fs.mkdirSync(audioDir, { recursive: true });
-    }
-    fs.writeFileSync(filePath, completeAudio);
+          if (!fs.existsSync(audioDir)) fs.mkdirSync(audioDir, { recursive: true });
+          fs.writeFileSync(filePath, completeAudio);
 
-   const audioUrl = `${process.env.BASE_URL}/audio/${filename}`;
-    twiml.play(audioUrl);
- twiml.gather({
-      input: 'speech',
-      action: `${process.env.BASE_URL}/api/calls/process-response`,
-      method: 'POST',
-      speechTimeout: 'auto',
-      language: callSession.language,
-      enhanced: true,
-      speechModel: 'phone_call'
-    });
+          const audioUrl = `${process.env.BASE_URL}/audio/${filename}`;
+          twiml.play(audioUrl);
+          
 
-          res.type('text/xml');
-          res.send(twiml.toString());
+          callSession.currentStep = 'health_check';
+          twiml.redirect({ method: 'POST' }, `${process.env.BASE_URL}/api/calls/webhook`);
+          res.type('text/xml').send(twiml.toString());
 
           cleanupListeners();
           resolve();
         }
       });
 
-      // Start streaming
-       await murfWebSocket.startRealTimeTTS(
+      await murfWebSocket.startRealTimeTTS(
+        greetingText,
+        callSession.language,
+        callSession.voiceProfile
+      );
+
+      setTimeout(() => {
+        cleanupListeners();
+        reject(new Error('WebSocket TTS timeout'));
+      }, 20000);
+    });
+  } catch (error) {
+    console.error('Greeting TTS error:', error);
+    cleanupListeners();
+
+    twiml.say({ voice: 'alice', language: callSession.language }, 'Sorry, the service is currently unavailable.');
+    res.type('text/xml').send(twiml.toString());
+  }
+}
+
+
+
+static async handleHealthCheck(twiml, callSession, res) {
+  const healthQuestionText = this.getHealthQuestionText(callSession);
+  const audioChunks = [];
+
+  const cleanupListeners = () => {
+    murfWebSocket.removeAllListeners('audioChunk');
+    murfWebSocket.removeAllListeners('streamingComplete');
+    if (murfWebSocket?.disconnect) murfWebSocket.disconnect();
+  };
+
+  try {
+    cleanupListeners();
+    await murfWebSocket.connect();
+
+    murfWebSocket.on('audioChunk', ({ audioChunk }) => {
+      audioChunks.push(audioChunk);
+    });
+
+    return new Promise(async (resolve, reject) => {
+      murfWebSocket.on('streamingComplete', async ({ isFinal }) => {
+        if (isFinal) {
+          const completeAudio = Buffer.concat(audioChunks);
+          const filename = `${uuidv4()}.wav`;
+          const audioDir = path.join(__dirname, '..', 'public', 'audio');
+          const filePath = path.join(audioDir, filename);
+
+          if (!fs.existsSync(audioDir)) fs.mkdirSync(audioDir, { recursive: true });
+          fs.writeFileSync(filePath, completeAudio);
+
+          const audioUrl = `${process.env.BASE_URL}/audio/${filename}`;
+          twiml.play(audioUrl);
+
+          twiml.gather({
+            input: 'speech',
+            action: `${process.env.BASE_URL}/api/calls/process-response`,
+            method: 'POST',
+            speechTimeout: 'auto',
+            language: callSession.language,
+            enhanced: true,
+            speechModel: 'phone_call'
+          });
+
+          res.type('text/xml').send(twiml.toString());
+
+          cleanupListeners();
+          resolve();
+        }
+      });
+
+      await murfWebSocket.startRealTimeTTS(
         healthQuestionText,
         callSession.language,
         callSession.voiceProfile
       );
 
-      // Fallback in case of timeout
       setTimeout(() => {
         cleanupListeners();
         reject(new Error('WebSocket TTS timeout'));
-      }, 30000);
+      }, 20000);
     });
-
   } catch (error) {
-    console.error('WebSocket TTS failed:', error);
+    console.error('HealthCheck TTS error:', error);
     cleanupListeners();
 
-    // Fallback to Twilio TTS
-    twiml.say({
-      voice: 'alice',
-      language: callSession.language
-    }, healthQuestionText);
-
-    res.type('text/xml');
-    res.send(twiml.toString());
+    twiml.say({ voice: 'alice', language: callSession.language }, healthQuestionText);
+    res.type('text/xml').send(twiml.toString());
   }
 }
 
+
   static async processPatientResponse(req, res) {
   const callSid = req.body.CallSid;
-  const callSession = this.activeCalls.get(callSid);
   const patientResponse = req.body.SpeechResult;
+  const callSession = this.activeCalls.get(callSid);
 
   console.log('Patient response:', patientResponse);
 
@@ -283,17 +260,26 @@ statusCallbackEvent: ['initiated', 'ringing', 'answered', 'in-progress', 'comple
     return res.status(404).send('Call session not found');
   }
 
-  const twiml = new twilio.twiml.VoiceResponse();
+  const cleanupListeners = () => {
+    murfWebSocket.removeAllListeners('audioChunk');
+    murfWebSocket.removeAllListeners('streamingComplete');
+    if (murfWebSocket?.disconnect) murfWebSocket.disconnect();
+    
+  };
+
+  const audioChunks = [];
 
   try {
-    // Store patient response
+    cleanupListeners();
+
+    // Save patient response
     callSession.conversationHistory.push({
       speaker: 'patient',
       text: patientResponse,
       timestamp: new Date()
     });
 
-    // Get AI response from Gemini
+    // Prepare AI context
     const patientContext = {
       name: callSession.patientName,
       medication: callSession.medicationName,
@@ -302,74 +288,79 @@ statusCallbackEvent: ['initiated', 'ringing', 'answered', 'in-progress', 'comple
       conversationHistory: callSession.conversationHistory
     };
 
+    // Get AI response
     const aiResponse = await GeminiService.getHealthResponse(
       patientResponse,
       patientContext,
       callSession.language
     );
 
-    // Store AI response
+    // Save AI response
     callSession.conversationHistory.push({
       speaker: 'ai',
       text: aiResponse,
       timestamp: new Date()
     });
 
-    const aiAudioChunks = [];
-
-    // Cleanup to avoid duplicate listeners
-    const cleanupListeners = () => {
-      murfWebSocket.removeAllListeners('audioChunk');
-      murfWebSocket.removeAllListeners('streamingComplete');
-    };
-
-    // Ensure WebSocket is connected
     await murfWebSocket.connect();
 
-    // Attach listeners before starting stream
     murfWebSocket.on('audioChunk', ({ audioChunk }) => {
-      aiAudioChunks.push(audioChunk);
+      audioChunks.push(audioChunk);
     });
 
-    return new Promise(async (resolve, reject) => {
-      murfWebSocket.on('streamingComplete', async ({ isFinal }) => {
-        if (isFinal) {
-          const completeAudio = Buffer.concat(aiAudioChunks);
-          const audioData = `data:audio/wav;base64,${completeAudio.toString('base64')}`;
-          twiml.play(audioData);
+    murfWebSocket.on('streamingComplete', async ({ isFinal }) => {
+      if (isFinal) {
+        console.log(`[${callSid}] AI voice response complete.`);
 
-          await this.handleFollowUpQuestion(twiml, callSession, res, patientResponse, patientContext);
+        const completeAudio = Buffer.concat(audioChunks);
+        const filename = `${uuidv4()}.wav`;
+        const audioDir = path.join(__dirname, '..', 'public', 'audio');
+        const filePath = path.join(audioDir, filename);
 
-          cleanupListeners();
-          resolve();
-        }
-      });
+        if (!fs.existsSync(audioDir)) fs.mkdirSync(audioDir, { recursive: true });
+        fs.writeFileSync(filePath, completeAudio);
 
-      // Start WebSocket TTS stream
-      await murfWebSocket.streamTextChunks(
-        aiResponse.split(' '), // pass as array of words
-        callSession.voiceProfile || MurfService.getVoiceForLanguage(callSession.language)
-      );
+        const audioUrl = `${process.env.BASE_URL}/audio/${filename}`;
+        const twiml = new twilio.twiml.VoiceResponse();
 
-      // Timeout fallback
-      setTimeout(() => {
+        twiml.play(audioUrl);
+
+        // Start follow-up after playback
+        twiml.gather({
+            input: 'speech',
+            action: `${process.env.BASE_URL}/api/calls/follow-up`,
+            method: 'POST',
+            speechTimeout: 'auto',
+            language: callSession.language,
+            enhanced: true,
+            speechModel: 'phone_call'
+          });
+
         cleanupListeners();
-        reject(new Error('AI response WebSocket TTS timeout'));
-      }, 15000);
+        res.type('text/xml').send(twiml.toString());
+      }
     });
+
+    // Stream text to Murf
+    await murfWebSocket.startRealTimeTTS(
+      aiResponse, callSession.language,
+        callSession.voiceProfile
+    );
 
   } catch (error) {
     console.error('Error processing patient response:', error);
 
+    const twiml = new twilio.twiml.VoiceResponse();
     twiml.say({
       voice: 'alice',
       language: callSession.language
     }, 'Sorry, there was an error. Please try again later.');
 
-    res.type('text/xml');
-    res.send(twiml.toString());
+    res.type('text/xml').send(twiml.toString());
   }
 }
+
+
 
 
   static async handleFollowUp(req, res) {
@@ -411,6 +402,8 @@ statusCallbackEvent: ['initiated', 'ringing', 'answered', 'in-progress', 'comple
     const cleanupListeners = () => {
       murfWebSocket.removeAllListeners('audioChunk');
       murfWebSocket.removeAllListeners('streamingComplete');
+      if (murfWebSocket?.disconnect) murfWebSocket.disconnect();
+      
     };
 
     await murfWebSocket.connect();
@@ -614,4 +607,35 @@ statusCallbackEvent: ['initiated', 'ringing', 'answered', 'in-progress', 'comple
   }
 }
 
+}
+
+
+
+export function setupTwilioStreamSocket(server) {
+  const wss = new WebSocket.Server({ server, path: '/twilio-stream' });
+
+  wss.on('connection', (ws) => {
+    let callSid = null;
+
+    ws.on('message', (message) => {
+      const data = JSON.parse(message);
+
+      if (data.event === 'start') {
+        callSid = data.start.callSid;
+        console.log(`[${callSid}] Twilio stream started`);
+        TwilioService.twilioMediaSockets.set(callSid, ws);
+      }
+
+      if (data.event === 'stop') {
+        console.log(`[${callSid}] Twilio stream stopped`);
+        if (callSid) TwilioService.twilioMediaSockets.delete(callSid);
+        ws.close();
+      }
+    });
+
+    ws.on('close', () => {
+      console.log(`[${callSid}] Twilio socket closed`);
+      if (callSid) TwilioService.twilioMediaSockets.delete(callSid);
+    });
+  });
 }
