@@ -151,7 +151,6 @@ export const handleFollowUp = async (req, res) => {
 // Handle call status callback
 export const handleCallStatusCallback = async (req, res) => {
   try {
-    console.log('Call status callback received:', req.body);
     req.sid = req.body.CallSid ;
     req.status = req.body.CallStatus
     await TwilioService.handleCallStatusCallback(req, res);

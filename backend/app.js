@@ -7,6 +7,8 @@ import routes from "./routes/routes.js";
 import { SchedulerService } from "./services/schedulerService.js";
 import { initializeDatabase } from "./config/setup.js"; // this runs the SQL file
 import { checkDatabaseSchema } from "./config/database.js"; // optional validator
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 dotenv.config();
 const app = express();
@@ -15,9 +17,13 @@ const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 app.use(express.urlencoded({ extended: true })); // Add this middleware
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // routes
 app.use("/api", routes);
+app.use('/audio', express.static(path.join(__dirname, 'public/audio')));
+
 
 // Initialization function
 const initializeApp = async () => {
