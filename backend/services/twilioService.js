@@ -150,8 +150,14 @@ statusCallbackEvent: ['initiated', 'ringing', 'answered', 'in-progress', 'comple
           callSession.currentStep = 'health_check';
           twiml.redirect({ method: 'POST' }, `${process.env.BASE_URL}/api/calls/webhook`);
           res.type('text/xml').send(twiml.toString());
+           
 
           cleanupListeners();
+           setTimeout(() => {
+            if (fs.existsSync(filePath)) {
+              fs.unlinkSync(filePath);
+            }
+          }, 5000);
           resolve();
         }
       });
@@ -185,7 +191,6 @@ static async handleHealthCheck(twiml, callSession, res) {
   const cleanupListeners = () => {
     murfWebSocket.removeAllListeners('audioChunk');
     murfWebSocket.removeAllListeners('streamingComplete');
-    if (murfWebSocket?.disconnect) murfWebSocket.disconnect();
   };
 
   try {
@@ -221,8 +226,12 @@ static async handleHealthCheck(twiml, callSession, res) {
           });
 
           res.type('text/xml').send(twiml.toString());
-
           cleanupListeners();
+          setTimeout(() => {
+          if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+          }
+        }, 5000);
           resolve();
         }
       });
@@ -262,9 +271,7 @@ static async handleHealthCheck(twiml, callSession, res) {
 
   const cleanupListeners = () => {
     murfWebSocket.removeAllListeners('audioChunk');
-    murfWebSocket.removeAllListeners('streamingComplete');
-    if (murfWebSocket?.disconnect) murfWebSocket.disconnect();
-    
+    murfWebSocket.removeAllListeners('streamingComplete');  
   };
 
   const audioChunks = [];
@@ -338,6 +345,12 @@ static async handleHealthCheck(twiml, callSession, res) {
 
         cleanupListeners();
         res.type('text/xml').send(twiml.toString());
+          setTimeout(() => {
+            if (fs.existsSync(filePath)) {
+              fs.unlinkSync(filePath);
+            }
+          }, 5000);
+          
       }
     });
 
@@ -416,9 +429,18 @@ static async handleHealthCheck(twiml, callSession, res) {
     return new Promise(async (resolve, reject) => {
       murfWebSocket.on('streamingComplete', ({ isFinal }) => {
         if (isFinal) {
-          const completeAudio = Buffer.concat(finalAudioChunks);
-          const audioData = `data:audio/wav;base64,${completeAudio.toString('base64')}`;
-          twiml.play(audioData);
+           const completeAudio = Buffer.concat(audioChunks);
+        const filename = `${uuidv4()}.wav`;
+        const audioDir = path.join(__dirname, '..', 'public', 'audio');
+        const filePath = path.join(audioDir, filename);
+
+        if (!fs.existsSync(audioDir)) fs.mkdirSync(audioDir, { recursive: true });
+        fs.writeFileSync(filePath, completeAudio);
+
+        const audioUrl = `${process.env.BASE_URL}/audio/${filename}`;
+        const twiml = new twilio.twiml.VoiceResponse();
+
+        twiml.play(audioUrl);
 
           // Goodbye message (via Twilio, not Murf)
           const goodbyeText = this.getGoodbyeText(callSession);
@@ -435,15 +457,20 @@ static async handleHealthCheck(twiml, callSession, res) {
           cleanupListeners();
           res.type('text/xml');
           res.send(twiml.toString());
+           setTimeout(() => {
+            if (fs.existsSync(filePath)) {
+              fs.unlinkSync(filePath);
+            }
+          }, 5000);
           resolve();
         }
       });
 
-      // Start WebSocket streaming
-      await murfWebSocket.streamTextChunks(
-        finalResponse.split(' '),
-        callSession.voiceProfile || MurfService.getVoiceForLanguage(callSession.language)
-      );
+     
+       await murfWebSocket.startRealTimeTTS(
+      finalResponse, callSession.language,
+        callSession.voiceProfile
+    );
 
       // Fallback timeout
       setTimeout(() => {
