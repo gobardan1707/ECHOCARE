@@ -267,7 +267,7 @@ export class MurfService {
   static getVoiceForLanguage(language) {
     const voiceMap = {
       'en': 'en-US-amara', // English - using official voice ID
-      'hi': 'hi-IN-neha', // Hindi
+      'hi': 'hi-IN-ayushi', // Hindi
       'es': 'es-ES-maria', // Spanish
       'fr': 'fr-FR-sophie', // French
       'de': 'de-DE-anna', // German
