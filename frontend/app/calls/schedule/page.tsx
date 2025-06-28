@@ -98,12 +98,46 @@ export default function ScheduleCallPage() {
   }, [selectedPatient, callTime, frequency, selectedVoice, medicines])
 
   const voiceOptions = [
-    "Sarah - Warm & Caring (Female)",
-    "Michael - Gentle & Reassuring (Male)",
-    "Emma - Friendly & Professional (Female)",
-    "David - Calm & Trustworthy (Male)",
-    "Priya - Compassionate Hindi (Female)",
-    "Raj - Caring Telugu (Male)",
+    // English
+    { value: "en-US-amara", label: "Amara - English (US)" },
+    // Hindi
+    { value: "hi-IN-ayushi", label: "Ayushi - Hindi" },
+    // Spanish
+    { value: "es-ES-maria", label: "Maria - Spanish" },
+    // French
+    { value: "fr-FR-sophie", label: "Sophie - French" },
+    // German
+    { value: "de-DE-anna", label: "Anna - German" },
+    // Italian
+    { value: "it-IT-giulia", label: "Giulia - Italian" },
+    // Portuguese
+    { value: "pt-BR-ana", label: "Ana - Portuguese (Brazil)" },
+    // Japanese
+    { value: "ja-JP-yuki", label: "Yuki - Japanese" },
+    // Korean
+    { value: "ko-KR-mina", label: "Mina - Korean" },
+    // Chinese
+    { value: "zh-CN-xiaomei", label: "Xiaomei - Chinese" },
+    // Arabic
+    { value: "ar-SA-fatima", label: "Fatima - Arabic" },
+    // Russian
+    { value: "ru-RU-natalia", label: "Natalia - Russian" },
+    // Bengali
+    { value: "bn-IN-priya", label: "Priya - Bengali" },
+    // Telugu
+    { value: "te-IN-lakshmi", label: "Lakshmi - Telugu" },
+    // Tamil
+    { value: "ta-IN-kavya", label: "Kavya - Tamil" },
+    // Marathi
+    { value: "mr-IN-anjali", label: "Anjali - Marathi" },
+    // Gujarati
+    { value: "gu-IN-diya", label: "Diya - Gujarati" },
+    // Kannada
+    { value: "kn-IN-shruti", label: "Shruti - Kannada" },
+    // Malayalam
+    { value: "ml-IN-meera", label: "Meera - Malayalam" },
+    // Punjabi
+    { value: "pa-IN-simran", label: "Simran - Punjabi" }
   ]
 
   const frequencyOptions = [
@@ -346,8 +380,8 @@ export default function ScheduleCallPage() {
                         </SelectTrigger>
                         <SelectContent>
                           {voiceOptions.map((voice) => (
-                            <SelectItem key={voice} value={voice}>
-                              {voice}
+                            <SelectItem key={voice.value} value={voice.value}>
+                              {voice.label}
                             </SelectItem>
                           ))}
                         </SelectContent>

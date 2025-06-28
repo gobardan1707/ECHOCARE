@@ -45,20 +45,69 @@ export default function AddNewPatientPage() {
 
   // Voice options matching backend expectations
   const voiceOptions = [
-    { value: "en-US-Neural2-F", label: "Sarah - Warm & Caring (Female)" },
-    { value: "en-US-Neural2-M", label: "Michael - Gentle & Reassuring (Male)" },
-    { value: "en-US-Neural2-A", label: "Emma - Friendly & Professional (Female)" },
-    { value: "en-US-Neural2-D", label: "David - Calm & Trustworthy (Male)" },
-    { value: "hi-IN-Neural2-A", label: "Priya - Compassionate Hindi (Female)" },
-    { value: "te-IN-Neural2-A", label: "Raj - Caring Telugu (Male)" },
+    // English
+    { value: "en-US-amara", label: "Amara - English (US)" },
+    // Hindi
+    { value: "hi-IN-ayushi", label: "Ayushi - Hindi" },
+    // Spanish
+    { value: "es-ES-maria", label: "Maria - Spanish" },
+    // French
+    { value: "fr-FR-sophie", label: "Sophie - French" },
+    // German
+    { value: "de-DE-anna", label: "Anna - German" },
+    // Italian
+    { value: "it-IT-giulia", label: "Giulia - Italian" },
+    // Portuguese
+    { value: "pt-BR-ana", label: "Ana - Portuguese (Brazil)" },
+    // Japanese
+    { value: "ja-JP-yuki", label: "Yuki - Japanese" },
+    // Korean
+    { value: "ko-KR-mina", label: "Mina - Korean" },
+    // Chinese
+    { value: "zh-CN-xiaomei", label: "Xiaomei - Chinese" },
+    // Arabic
+    { value: "ar-SA-fatima", label: "Fatima - Arabic" },
+    // Russian
+    { value: "ru-RU-natalia", label: "Natalia - Russian" },
+    // Bengali
+    { value: "bn-IN-priya", label: "Priya - Bengali" },
+    // Telugu
+    { value: "te-IN-lakshmi", label: "Lakshmi - Telugu" },
+    // Tamil
+    { value: "ta-IN-kavya", label: "Kavya - Tamil" },
+    // Marathi
+    { value: "mr-IN-anjali", label: "Anjali - Marathi" },
+    // Gujarati
+    { value: "gu-IN-diya", label: "Diya - Gujarati" },
+    // Kannada
+    { value: "kn-IN-shruti", label: "Shruti - Kannada" },
+    // Malayalam
+    { value: "ml-IN-meera", label: "Meera - Malayalam" },
+    // Punjabi
+    { value: "pa-IN-simran", label: "Simran - Punjabi" }
   ]
 
   const languageOptions = [
     { value: "en", label: "English" },
+    { value: "hi", label: "Hindi" },
     { value: "es", label: "Spanish" },
     { value: "fr", label: "French" },
-    { value: "hi", label: "Hindi" },
+    { value: "de", label: "German" },
+    { value: "it", label: "Italian" },
+    { value: "pt", label: "Portuguese" },
+    { value: "ja", label: "Japanese" },
+    { value: "ko", label: "Korean" },
     { value: "zh", label: "Chinese" },
+    { value: "ar", label: "Arabic" },
+    { value: "ru", label: "Russian" },
+    { value: "bn", label: "Bengali" },
+    { value: "te", label: "Telugu" },
+    { value: "ta", label: "Tamil" },
+    { value: "mr", label: "Marathi" },
+    { value: "gu", label: "Gujarati" },
+    { value: "kn", label: "Kannada" },
+    { value: "ml", label: "Malayalam" },
+    { value: "pa", label: "Punjabi" }
   ]
 
   const frequencyOptions = [
