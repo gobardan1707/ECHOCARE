@@ -220,7 +220,7 @@ static async handleHealthCheck(twiml, callSession, res) {
             action: `${process.env.BASE_URL}/api/calls/process-response`,
             method: 'POST',
             speechTimeout: 'auto',
-            language: callSession.language,
+            language: callSession.language === "hi" ? 'hi-IN' : callSession.language,
             enhanced: true,
             speechModel: 'phone_call'
           });
