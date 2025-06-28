@@ -91,10 +91,6 @@ export const handleFollowUp = async (req, res) => {
     }
 await TwilioService.handleFollowUp(req, res);
 
-    TwilioService.activeCalls.delete(callSid);
-
-    res.type('text/xml');
-    res.send(twiml.toString());
   } catch (error) {
     console.error('Error handling follow-up:', error);
     res.status(500).json({
