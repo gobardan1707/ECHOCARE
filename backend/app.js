@@ -22,6 +22,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // routes
+// Keep-alive endpoint
+app.get('/health', (req, res) => {
+  res.status(200).send('OK');
+});
 app.use("/api", routes);
 app.use('/audio', express.static(path.join(__dirname, 'public/audio')));
 
