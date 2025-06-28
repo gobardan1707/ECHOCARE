@@ -1,41 +1,72 @@
 import { type NextRequest, NextResponse } from "next/server"
 
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:3000'
+
 // Mock Twilio integration for demo purposes
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { patientId, medicationId, scheduledTime, voiceCloneUrl } = body
+    
+    console.log('📞 Frontend: Initiating call with data:', body)
+    
+    const response = await fetch(`${BACKEND_URL}/api/calls/initiate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    })
 
-    // In a real implementation, this would:
-    // 1. Create a Twilio call
-    // 2. Use Murf AI to generate the voice message
-    // 3. Handle the call flow with webhooks
-
-    // Mock response
-    const callSid = `CA${Math.random().toString(36).substr(2, 32)}`
-
-    // Simulate call initiation
-    const response = {
-      success: true,
-      callSid,
-      status: "initiated",
-      message: "Call scheduled successfully",
+    const result = await response.json()
+    
+    console.log('📞 Backend response:', result)
+    
+    if (response.ok) {
+      return NextResponse.json(result)
+    } else {
+      return NextResponse.json(
+        { success: false, error: result.error || 'Failed to initiate call' },
+        { status: response.status }
+      )
     }
-
-    return NextResponse.json(response)
   } catch (error) {
-    return NextResponse.json({ error: "Failed to initiate call" }, { status: 500 })
+    console.error('📞 Error initiating call:', error)
+    return NextResponse.json(
+      { success: false, error: 'Failed to connect to backend server' },
+      { status: 500 }
+    )
   }
 }
 
 // Handle Twilio webhooks
 export async function GET(request: NextRequest) {
-  const searchParams = request.nextUrl.searchParams
-  const callSid = searchParams.get("CallSid")
-  const callStatus = searchParams.get("CallStatus")
+  try {
+    console.log('📞 Frontend: Fetching active calls from backend')
+    
+    const response = await fetch(`${BACKEND_URL}/api/calls/active`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
 
-  // In a real implementation, this would handle Twilio webhook events
-  // and update the database with call status, recordings, etc.
-
-  return NextResponse.json({ received: true })
+    const result = await response.json()
+    
+    console.log('📞 Backend response:', result)
+    
+    if (response.ok) {
+      return NextResponse.json(result)
+    } else {
+      return NextResponse.json(
+        { success: false, error: result.error || 'Failed to fetch active calls' },
+        { status: response.status }
+      )
+    }
+  } catch (error) {
+    console.error('📞 Error fetching active calls:', error)
+    return NextResponse.json(
+      { success: false, error: 'Failed to connect to backend server' },
+      { status: 500 }
+    )
+  }
 }

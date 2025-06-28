@@ -1,5 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:3000'
+
 // Mock Murf AI integration for voice cloning
 export async function POST(request: NextRequest) {
   try {
@@ -13,52 +15,77 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
 
-    // In a real implementation, this would:
-    // 1. Upload audio to Murf AI
-    // 2. Process voice cloning
-    // 3. Store the voice model reference
-    // 4. Return the voice clone ID
+    console.log('🎙️ Frontend: Processing voice clone for patient:', patientId)
+    
+    // Create a new FormData for the backend request
+    const backendFormData = new FormData()
+    backendFormData.append("audio", audioFile)
+    backendFormData.append("patientId", patientId)
+    if (relationship) backendFormData.append("relationship", relationship)
+    if (sampleText) backendFormData.append("sampleText", sampleText)
 
-    // Mock processing
-    const voiceCloneId = `vc_${Math.random().toString(36).substr(2, 16)}`
+    const response = await fetch(`${BACKEND_URL}/api/voice/clone`, {
+      method: 'POST',
+      body: backendFormData,
+    })
 
-    // Simulate processing time
-    setTimeout(() => {
-      // In real implementation, this would be a webhook or polling mechanism
-      console.log(`Voice clone ${voiceCloneId} processing completed`)
-    }, 5000)
-
-    const response = {
-      success: true,
-      voiceCloneId,
-      status: "processing",
-      estimatedCompletion: "5-10 minutes",
-      message: "Voice cloning process started",
+    const result = await response.json()
+    
+    console.log('🎙️ Backend response:', result)
+    
+    if (response.ok) {
+      return NextResponse.json(result)
+    } else {
+      return NextResponse.json(
+        { success: false, error: result.error || 'Failed to process voice clone' },
+        { status: response.status }
+      )
     }
-
-    return NextResponse.json(response)
   } catch (error) {
-    return NextResponse.json({ error: "Failed to process voice clone" }, { status: 500 })
+    console.error('🎙️ Error processing voice clone:', error)
+    return NextResponse.json(
+      { success: false, error: 'Failed to connect to backend server' },
+      { status: 500 }
+    )
   }
 }
 
 // Get voice clone status
 export async function GET(request: NextRequest) {
-  const searchParams = request.nextUrl.searchParams
-  const voiceCloneId = searchParams.get("id")
+  try {
+    const searchParams = request.nextUrl.searchParams
+    const voiceCloneId = searchParams.get("id")
 
-  if (!voiceCloneId) {
-    return NextResponse.json({ error: "Voice clone ID required" }, { status: 400 })
+    if (!voiceCloneId) {
+      return NextResponse.json({ error: "Voice clone ID required" }, { status: 400 })
+    }
+
+    console.log('🎙️ Frontend: Checking voice clone status for:', voiceCloneId)
+    
+    const response = await fetch(`${BACKEND_URL}/api/voice/clone?id=${voiceCloneId}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+
+    const result = await response.json()
+    
+    console.log('🎙️ Backend response:', result)
+    
+    if (response.ok) {
+      return NextResponse.json(result)
+    } else {
+      return NextResponse.json(
+        { success: false, error: result.error || 'Failed to get voice clone status' },
+        { status: response.status }
+      )
+    }
+  } catch (error) {
+    console.error('🎙️ Error getting voice clone status:', error)
+    return NextResponse.json(
+      { success: false, error: 'Failed to connect to backend server' },
+      { status: 500 }
+    )
   }
-
-  // Mock status response
-  const response = {
-    voiceCloneId,
-    status: "completed", // processing, completed, failed
-    progress: 100,
-    voiceUrl: `https://murf-ai-voices.com/${voiceCloneId}.wav`,
-    quality: "high",
-  }
-
-  return NextResponse.json(response)
 }
