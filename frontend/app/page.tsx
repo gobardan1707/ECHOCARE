@@ -1,11 +1,9 @@
 "use client"
 
-import { useState } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import {
   CheckCircle,
   ArrowRight,
@@ -31,22 +29,14 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { OnboardingFlow } from "@/components/onboarding-flow"
-import { LoginForm } from "@/components/auth/login-form"
 import Image from "next/image"
 
 export default function HomePage() {
-  const [showOnboarding, setShowOnboarding] = useState(false)
-  const [showLogin, setShowLogin] = useState(false)
   const router = useRouter()
 
-  const handleGetStarted = () => {
-    setShowLogin(true)
-  }
-
-  const handleLoginSuccess = () => {
-    setShowLogin(false)
-    setShowOnboarding(true)
+  const handleTryNow = () => {
+    // Redirect to the new patient creation page
+    router.push("/patients/new")
   }
 
   const features = [
@@ -213,16 +203,13 @@ export default function HomePage() {
               <Link href="/demo" className="text-gray-600 hover:text-gray-900 transition-colors">
                 Demo
               </Link>
-              <Button variant="outline" onClick={() => setShowLogin(true)} className="rounded-xl bg-transparent">
-                Sign In
-              </Button>
-              <Button onClick={handleGetStarted} className="modern-button echocare-gradient">
-                Get Started
+              <Button onClick={handleTryNow} className="modern-button echocare-gradient">
+                Try Now
               </Button>
             </nav>
             <div className="md:hidden">
-              <Button onClick={handleGetStarted} size="sm" className="rounded-xl echocare-gradient">
-                Get Started
+              <Button onClick={handleTryNow} size="sm" className="rounded-xl echocare-gradient">
+                Try Now
               </Button>
             </div>
           </div>
@@ -246,8 +233,8 @@ export default function HomePage() {
                 intelligent health monitoring, and comprehensive analytics.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
-                <Button onClick={handleGetStarted} size="lg" className="modern-button echocare-gradient text-lg px-8">
-                  Start Free Trial
+                <Button onClick={handleTryNow} size="lg" className="modern-button echocare-gradient text-lg px-8">
+                  Try Now
                   <ArrowRight className="w-5 h-5 ml-2" />
                 </Button>
                 <Button variant="outline" size="lg" asChild className="rounded-2xl bg-transparent text-lg px-8">
@@ -490,11 +477,11 @@ export default function HomePage() {
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
                   <Button
-                    onClick={handleGetStarted}
+                    onClick={handleTryNow}
                     size="lg"
                     className="bg-white text-blue-600 hover:bg-gray-100 modern-button text-lg px-8"
                   >
-                    Start Free Trial
+                    Try Now
                     <ArrowRight className="w-5 h-5 ml-2" />
                   </Button>
                   <Button
@@ -621,19 +608,6 @@ export default function HomePage() {
           </div>
         </div>
       </footer>
-
-      {/* Dialogs */}
-      <Dialog open={showLogin} onOpenChange={setShowLogin}>
-        <DialogContent className="sm:max-w-md rounded-2xl">
-          <DialogHeader>
-            <DialogTitle className="text-center text-2xl">Welcome to EchoCare</DialogTitle>
-            <DialogDescription className="text-center">Sign in to access your healthcare dashboard</DialogDescription>
-          </DialogHeader>
-          <LoginForm onSuccess={handleLoginSuccess} />
-        </DialogContent>
-      </Dialog>
-
-      <OnboardingFlow isOpen={showOnboarding} onClose={() => setShowOnboarding(false)} />
     </div>
   )
 }
