@@ -91,19 +91,6 @@ export const handleFollowUp = async (req, res) => {
     }
 await TwilioService.handleFollowUp(req, res);
 
-
-    // // End call with goodbye message
-    // const goodbyeText = TwilioService.getGoodbyeText(callSession);
-    // const goodbyeAudioUrl = await MurfService.generateAudio(
-    //   goodbyeText,
-    //   callSession.language,
-    //   callSession.voiceProfile
-    // );
-
-    // twiml.play(goodbyeAudioUrl);
-    twiml.hangup();
-
-    // Clean up call session
     TwilioService.activeCalls.delete(callSid);
 
     res.type('text/xml');
