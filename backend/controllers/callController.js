@@ -1,6 +1,7 @@
-import { TwilioService } from '../services/twilioService.js';
-import { GeminiService } from '../services/geminiService.js';
-import { MurfService } from '../services/murfService.js';
+import { TwilioService } from "../services/twilioService.js";
+import { GeminiService } from "../services/geminiService.js";
+import { MurfService } from "../services/murfService.js";
+import { supabase } from "../config/database.js";
 
 // Initiate a medication reminder call
 export const initiateCall = async (req, res) => {
@@ -13,14 +14,15 @@ export const initiateCall = async (req, res) => {
       dosage,
       instructions,
       patientId,
-      language = 'en',
-      voiceProfile
+      language = "en",
+      voiceProfile,
     } = req.body;
 
     // Validate required fields
     if (!phoneNumber || !patientName || !medicationName || !medicationTime) {
       return res.status(400).json({
-        error: 'Missing required fields: phoneNumber, patientName, medicationName, medicationTime'
+        error:
+          "Missing required fields: phoneNumber, patientName, medicationName, medicationTime",
       });
     }
 
@@ -31,22 +33,26 @@ export const initiateCall = async (req, res) => {
       dosage,
       instructions,
       patientId,
-      voiceProfile
+      voiceProfile,
     };
 
-    const call = await TwilioService.initiateCall(phoneNumber, medicationData, language);
+    const call = await TwilioService.initiateCall(
+      phoneNumber,
+      medicationData,
+      language
+    );
 
     res.status(200).json({
       success: true,
       callSid: call.sid,
       status: call.status,
-      message: 'Call initiated successfully'
+      message: "Call initiated successfully",
     });
   } catch (error) {
-    console.error('Error initiating call:', error);
+    console.error("Error initiating call:", error);
     res.status(500).json({
-      error: 'Failed to initiate call',
-      details: error.message
+      error: "Failed to initiate call",
+      details: error.message,
     });
   }
 };
@@ -57,10 +63,10 @@ export const handleCallWebhook = async (req, res) => {
     req.sid = req.body.CallSid;
     await TwilioService.handleCallWebhook(req, res);
   } catch (error) {
-    console.error('Error handling call webhook:', error);
+    console.error("Error handling call webhook:", error);
     res.status(500).json({
-      error: 'Failed to handle call webhook',
-      details: error.message
+      error: "Failed to handle call webhook",
+      details: error.message,
     });
   }
 };
@@ -70,10 +76,10 @@ export const processPatientResponse = async (req, res) => {
   try {
     await TwilioService.processPatientResponse(req, res);
   } catch (error) {
-    console.error('Error processing patient response:', error);
+    console.error("Error processing patient response:", error);
     res.status(500).json({
-      error: 'Failed to process patient response',
-      details: error.message
+      error: "Failed to process patient response",
+      details: error.message,
     });
   }
 };
@@ -83,19 +89,24 @@ export const handleFollowUp = async (req, res) => {
   try {
     const callSid = req.body.CallSid;
     const callSession = TwilioService.activeCalls.get(callSid);
-    const followUpResponse = req.body.SpeechResult;
-    
-    if (!callSession) {
-      console.error('Call session not found for SID:', callSid);
-      return res.status(404).send('Call session not found');
-    }
-await TwilioService.handleFollowUp(req, res);
 
+    if (!callSession) {
+      console.error("Call session not found for SID:", callSid);
+      return res.status(404).send("Call session not found");
+    }
+    await TwilioService.handleFollowUp(req, res);
+    console.log(callSession);
+    const summary = GeminiService.generateConversationSummary(callSession);
+    console.log("Generated summary:", summary);
+    await supabase .from("call_schedules").insert({
+      status: "completed",
+      notes: summary,})
+    TwilioService.activeCalls.delete(callSid); // Clean up session after follow-up
   } catch (error) {
-    console.error('Error handling follow-up:', error);
+    console.error("Error handling follow-up:", error);
     res.status(500).json({
-      error: 'Failed to handle follow-up',
-      details: error.message
+      error: "Failed to handle follow-up",
+      details: error.message,
     });
   }
 };
@@ -103,14 +114,14 @@ await TwilioService.handleFollowUp(req, res);
 // Handle call status callback
 export const handleCallStatusCallback = async (req, res) => {
   try {
-    req.sid = req.body.CallSid ;
-    req.status = req.body.CallStatus
+    req.sid = req.body.CallSid;
+    req.status = req.body.CallStatus;
     await TwilioService.handleCallStatusCallback(req, res);
   } catch (error) {
-    console.error('Error handling call status callback:', error);
+    console.error("Error handling call status callback:", error);
     res.status(500).json({
-      error: 'Failed to handle call status callback',
-      details: error.message
+      error: "Failed to handle call status callback",
+      details: error.message,
     });
   }
 };
@@ -122,13 +133,13 @@ export const getActiveCalls = async (req, res) => {
     res.status(200).json({
       success: true,
       activeCalls,
-      count: activeCalls.length
+      count: activeCalls.length,
     });
   } catch (error) {
-    console.error('Error getting active calls:', error);
+    console.error("Error getting active calls:", error);
     res.status(500).json({
-      error: 'Failed to get active calls',
-      details: error.message
+      error: "Failed to get active calls",
+      details: error.message,
     });
   }
 };
@@ -136,28 +147,32 @@ export const getActiveCalls = async (req, res) => {
 // Test Murf AI voice generation
 export const testMurfVoice = async (req, res) => {
   try {
-    const { text, language = 'en', voiceProfile } = req.body;
-    
+    const { text, language = "en", voiceProfile } = req.body;
+
     if (!text) {
       return res.status(400).json({
-        error: 'Text is required for voice generation'
+        error: "Text is required for voice generation",
       });
     }
 
-    const audioUrl = await MurfService.generateAudio(text, language, voiceProfile);
-    
+    const audioUrl = await MurfService.generateAudio(
+      text,
+      language,
+      voiceProfile
+    );
+
     res.status(200).json({
       success: true,
       audioUrl,
       text,
       language,
-      voiceProfile: voiceProfile || MurfService.getVoiceForLanguage(language)
+      voiceProfile: voiceProfile || MurfService.getVoiceForLanguage(language),
     });
   } catch (error) {
-    console.error('Error testing Murf voice:', error);
+    console.error("Error testing Murf voice:", error);
     res.status(500).json({
-      error: 'Failed to generate voice',
-      details: error.message
+      error: "Failed to generate voice",
+      details: error.message,
     });
   }
 };
@@ -165,11 +180,11 @@ export const testMurfVoice = async (req, res) => {
 // Test Gemini AI response
 export const testGeminiResponse = async (req, res) => {
   try {
-    const { patientResponse, patientContext, language = 'en' } = req.body;
-    
+    const { patientResponse, patientContext, language = "en" } = req.body;
+
     if (!patientResponse) {
       return res.status(400).json({
-        error: 'Patient response is required'
+        error: "Patient response is required",
       });
     }
 
@@ -178,18 +193,18 @@ export const testGeminiResponse = async (req, res) => {
       patientContext || {},
       language
     );
-    
+
     res.status(200).json({
       success: true,
       aiResponse,
       patientResponse,
-      language
+      language,
     });
   } catch (error) {
-    console.error('Error testing Gemini response:', error);
+    console.error("Error testing Gemini response:", error);
     res.status(500).json({
-      error: 'Failed to get AI response',
-      details: error.message
+      error: "Failed to get AI response",
+      details: error.message,
     });
   }
 };
@@ -197,21 +212,21 @@ export const testGeminiResponse = async (req, res) => {
 // Get available voices for a language
 export const getAvailableVoices = async (req, res) => {
   try {
-    const { language = 'en' } = req.query;
-    
+    const { language = "en" } = req.query;
+
     const voices = await MurfService.getAvailableVoices(language);
-    
+
     res.status(200).json({
       success: true,
       voices,
       language,
-      count: voices.length
+      count: voices.length,
     });
   } catch (error) {
-    console.error('Error getting available voices:', error);
+    console.error("Error getting available voices:", error);
     res.status(500).json({
-      error: 'Failed to get available voices',
-      details: error.message
+      error: "Failed to get available voices",
+      details: error.message,
     });
   }
 };
@@ -219,11 +234,11 @@ export const getAvailableVoices = async (req, res) => {
 // Test WebSocket-based real-time TTS with official API
 export const testWebSocketTTS = async (req, res) => {
   try {
-    const { text, language = 'en', voiceProfile } = req.body;
-    
+    const { text, language = "en", voiceProfile } = req.body;
+
     if (!text) {
       return res.status(400).json({
-        error: 'Text is required for WebSocket TTS'
+        error: "Text is required for WebSocket TTS",
       });
     }
 
@@ -234,11 +249,15 @@ export const testWebSocketTTS = async (req, res) => {
     }
 
     // Start real-time TTS streaming
-    const sessionId = await MurfService.startWebSocketTTS(text, language, voiceProfile);
-    
+    const sessionId = await MurfService.startWebSocketTTS(
+      text,
+      language,
+      voiceProfile
+    );
+
     // Set up event listeners for demo
     const audioChunks = [];
-    
+
     MurfService.onAudioChunk(({ audioChunk, isFinal }) => {
       audioChunks.push(audioChunk);
       console.log(`🎵 Received audio chunk ${audioChunks.length}`);
@@ -258,14 +277,14 @@ export const testWebSocketTTS = async (req, res) => {
       text,
       language,
       voiceProfile: voiceProfile || MurfService.getVoiceForLanguage(language),
-      message: 'WebSocket TTS streaming started using official Murf AI API',
-      webSocketStatus: MurfService.getWebSocketStatus()
+      message: "WebSocket TTS streaming started using official Murf AI API",
+      webSocketStatus: MurfService.getWebSocketStatus(),
     });
   } catch (error) {
-    console.error('Error testing WebSocket TTS:', error);
+    console.error("Error testing WebSocket TTS:", error);
     res.status(500).json({
-      error: 'Failed to start WebSocket TTS',
-      details: error.message
+      error: "Failed to start WebSocket TTS",
+      details: error.message,
     });
   }
 };
@@ -273,11 +292,11 @@ export const testWebSocketTTS = async (req, res) => {
 // Test real-time text streaming with official API
 export const testRealTimeStreaming = async (req, res) => {
   try {
-    const { text, language = 'en', voiceProfile } = req.body;
-    
+    const { text, language = "en", voiceProfile } = req.body;
+
     if (!text) {
       return res.status(400).json({
-        error: 'Text is required for real-time streaming'
+        error: "Text is required for real-time streaming",
       });
     }
 
@@ -288,22 +307,26 @@ export const testRealTimeStreaming = async (req, res) => {
     }
 
     // Start real-time text streaming
-    const sessionId = await MurfService.streamWebSocketText(text, language, voiceProfile);
-    
+    const sessionId = await MurfService.streamWebSocketText(
+      text,
+      language,
+      voiceProfile
+    );
+
     res.status(200).json({
       success: true,
       sessionId,
       text,
       language,
       voiceProfile: voiceProfile || MurfService.getVoiceForLanguage(language),
-      message: 'Real-time text streaming started using official Murf AI API',
-      webSocketStatus: MurfService.getWebSocketStatus()
+      message: "Real-time text streaming started using official Murf AI API",
+      webSocketStatus: MurfService.getWebSocketStatus(),
     });
   } catch (error) {
-    console.error('Error testing real-time streaming:', error);
+    console.error("Error testing real-time streaming:", error);
     res.status(500).json({
-      error: 'Failed to start real-time streaming',
-      details: error.message
+      error: "Failed to start real-time streaming",
+      details: error.message,
     });
   }
 };
@@ -314,13 +337,13 @@ export const getWebSocketStatus = async (req, res) => {
     const status = MurfService.getWebSocketStatus();
     res.status(200).json({
       success: true,
-      webSocketStatus: status
+      webSocketStatus: status,
     });
   } catch (error) {
-    console.error('Error getting WebSocket status:', error);
+    console.error("Error getting WebSocket status:", error);
     res.status(500).json({
-      error: 'Failed to get WebSocket status',
-      details: error.message
+      error: "Failed to get WebSocket status",
+      details: error.message,
     });
   }
-}; 
+};

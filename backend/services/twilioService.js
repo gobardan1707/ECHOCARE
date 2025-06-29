@@ -359,6 +359,7 @@ static async handleHealthCheck(twiml, callSession, res) {
   const twiml = new twilio.twiml.VoiceResponse();
 
   // Store patient response
+  callSession.currentStep = 'follow_up';
   callSession.conversationHistory.push({
     speaker: 'patient',
     text: followUpResponse,
@@ -395,10 +396,6 @@ static async handleHealthCheck(twiml, callSession, res) {
 
     // End the call
     twiml.hangup();
-
-    // Clean up call session
-    this.activeCalls.delete(callSid);
-
     res.type('text/xml');
     res.send(twiml.toString());
 
