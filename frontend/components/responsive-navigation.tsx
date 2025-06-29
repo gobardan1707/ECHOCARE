@@ -75,14 +75,14 @@ export function ResponsiveNavigation() {
       href: "/dashboard",
       tooltip: "Main dashboard overview",
     },
-    {
-      id: "schedule-call",
-      label: "Schedule Call",
-      icon: <Calendar className="w-5 h-5" />,
-      href: "/calls/schedule",
-      badge: pendingCalls > 0 ? pendingCalls : undefined,
-      tooltip: "Schedule new medication reminder calls",
-    },
+    // {
+    //   id: "schedule-call",
+    //   label: "Schedule Call",
+    //   icon: <Calendar className="w-5 h-5" />,
+    //   href: "/calls/schedule",
+    //   badge: pendingCalls > 0 ? pendingCalls : undefined,
+    //   tooltip: "Schedule new medication reminder calls",
+    // },
     {
       id: "patient-summaries",
       label: "Patients",
@@ -90,27 +90,27 @@ export function ResponsiveNavigation() {
       href: "/patients",
       tooltip: "View and manage patient profiles",
     },
-    {
-      id: "call-logs",
-      label: "Call Logs",
-      icon: <Phone className="w-5 h-5" />,
-      href: "/calls",
-      tooltip: "View detailed call history and recordings",
-    },
-    {
-      id: "adherence-report",
-      label: "Analytics",
-      icon: <BarChart3 className="w-5 h-5" />,
-      href: "/analytics",
-      tooltip: "Medication compliance analytics and insights",
-    },
-    {
-      id: "system-settings",
-      label: "Settings",
-      icon: <Settings className="w-5 h-5" />,
-      href: "/settings",
-      tooltip: "Configure system preferences and integrations",
-    },
+    // {
+    //   id: "call-logs",
+    //   label: "Call Logs",
+    //   icon: <Phone className="w-5 h-5" />,
+    //   href: "/calls",
+    //   tooltip: "View detailed call history and recordings",
+    // },
+    // {
+    //   id: "adherence-report",
+    //   label: "Analytics",
+    //   icon: <BarChart3 className="w-5 h-5" />,
+    //   href: "/analytics",
+    //   tooltip: "Medication compliance analytics and insights",
+    // },
+    // {
+    //   id: "system-settings",
+    //   label: "Settings",
+    //   icon: <Settings className="w-5 h-5" />,
+    //   href: "/settings",
+    //   tooltip: "Configure system preferences and integrations",
+    // },
   ]
 
   const isActive = (href: string) => {
@@ -203,7 +203,7 @@ export function ResponsiveNavigation() {
                   </TooltipContent>
                 </Tooltip>
 
-                {missedCalls > 0 && (
+                {/* {missedCalls > 0 && (
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Link href="/calls?filter=missed">
@@ -217,11 +217,11 @@ export function ResponsiveNavigation() {
                       <p>Missed calls requiring follow-up</p>
                     </TooltipContent>
                   </Tooltip>
-                )}
+                )} */}
               </div>
 
               {/* Notifications */}
-              <Tooltip>
+              {/* <Tooltip>
                 <TooltipTrigger asChild>
                   <Button variant="ghost" size="sm" className="relative rounded-xl">
                     <Bell className="w-5 h-5" />
@@ -235,10 +235,10 @@ export function ResponsiveNavigation() {
                 <TooltipContent>
                   <p>System notifications and alerts</p>
                 </TooltipContent>
-              </Tooltip>
+              </Tooltip> */}
 
               {/* User Menu */}
-              <DropdownMenu>
+              {/* <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="sm" className="flex items-center space-x-3 rounded-xl px-4 py-2 h-12">
                     <div className="w-10 h-10 echocare-gradient rounded-xl flex items-center justify-center text-white font-bold">
@@ -279,7 +279,7 @@ export function ResponsiveNavigation() {
                     Sign Out
                   </DropdownMenuItem>
                 </DropdownMenuContent>
-              </DropdownMenu>
+              </DropdownMenu> */}
             </div>
           </div>
         </div>

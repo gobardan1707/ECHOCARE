@@ -1,27 +1,61 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Badge } from "@/components/ui/badge"
-import { Separator } from "@/components/ui/separator"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { Progress } from "@/components/ui/progress"
-import { Play, Save, ArrowLeft, Plus, X, User, Pill, Clock, Phone, Volume2, AlertCircle, CheckCircle } from "lucide-react"
-import Link from "next/link"
-import { useRouter } from "next/navigation"
-import { ResponsiveNavigation } from "@/components/responsive-navigation"
-import { usePatients } from "@/components/patient-context"
+import { useState, useMemo } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import {
+  Play,
+  Save,
+  ArrowLeft,
+  Plus,
+  X,
+  User,
+  Pill,
+  Clock,
+  Volume2,
+  AlertCircle,
+  CheckCircle,
+} from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { ResponsiveNavigation } from "@/components/responsive-navigation";
+import { usePatients } from "@/components/patient-context";
+
+// A small helper to format time for user-friendly display
+const formatDisplayTime = (time24h: string) => {
+  if (!time24h) return "";
+  const [hours, minutes] = time24h.split(":");
+  const date = new Date();
+  date.setHours(parseInt(hours, 10), parseInt(minutes, 10));
+  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+};
 
 export default function AddNewPatientPage() {
-  const router = useRouter()
-  const { addPatient } = usePatients()
+  const router = useRouter();
+  const { addPatient } = usePatients();
 
-  // Combined form state matching backend structure exactly
+  // Best practice: Use environment variables for API endpoints
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://echocare.onrender.com/api";
+
   const [formData, setFormData] = useState({
     phoneNumber: "",
     name: "",
@@ -31,61 +65,40 @@ export default function AddNewPatientPage() {
     frequency: "daily",
     timeSlots: [] as string[],
     instructions: "",
-    startDate: new Date().toISOString().split('T')[0],
+    startDate: new Date().toISOString().split("T")[0],
     endDate: "",
-    voiceProfile: "en-US-Neural2-F"
-  })
-  
-  const [currentTimeSlot, setCurrentTimeSlot] = useState("")
-  const [isPreviewingVoice, setIsPreviewingVoice] = useState(false)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [formProgress, setFormProgress] = useState(0)
-  const [errors, setErrors] = useState<Record<string, string>>({})
-  const [previewResult, setPreviewResult] = useState<string>("")
+    voiceProfile: "en-US-amara",
+  });
 
-  // Voice options matching backend expectations
+  const [currentTimeSlot, setCurrentTimeSlot] = useState("");
+  const [isPreviewingVoice, setIsPreviewingVoice] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  
+  const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
   const voiceOptions = [
-    // English
     { value: "en-US-amara", label: "Amara - English (US)" },
-    // Hindi
     { value: "hi-IN-ayushi", label: "Ayushi - Hindi" },
-    // Spanish
     { value: "es-ES-maria", label: "Maria - Spanish" },
-    // French
     { value: "fr-FR-sophie", label: "Sophie - French" },
-    // German
     { value: "de-DE-anna", label: "Anna - German" },
-    // Italian
     { value: "it-IT-giulia", label: "Giulia - Italian" },
-    // Portuguese
     { value: "pt-BR-ana", label: "Ana - Portuguese (Brazil)" },
-    // Japanese
     { value: "ja-JP-yuki", label: "Yuki - Japanese" },
-    // Korean
     { value: "ko-KR-mina", label: "Mina - Korean" },
-    // Chinese
     { value: "zh-CN-xiaomei", label: "Xiaomei - Chinese" },
-    // Arabic
     { value: "ar-SA-fatima", label: "Fatima - Arabic" },
-    // Russian
     { value: "ru-RU-natalia", label: "Natalia - Russian" },
-    // Bengali
     { value: "bn-IN-priya", label: "Priya - Bengali" },
-    // Telugu
     { value: "te-IN-lakshmi", label: "Lakshmi - Telugu" },
-    // Tamil
     { value: "ta-IN-kavya", label: "Kavya - Tamil" },
-    // Marathi
     { value: "mr-IN-anjali", label: "Anjali - Marathi" },
-    // Gujarati
     { value: "gu-IN-diya", label: "Diya - Gujarati" },
-    // Kannada
     { value: "kn-IN-shruti", label: "Shruti - Kannada" },
-    // Malayalam
     { value: "ml-IN-meera", label: "Meera - Malayalam" },
-    // Punjabi
-    { value: "pa-IN-simran", label: "Simran - Punjabi" }
-  ]
+    { value: "pa-IN-simran", label: "Simran - Punjabi" },
+  ];
 
   const languageOptions = [
     { value: "en", label: "English" },
@@ -102,251 +115,164 @@ export default function AddNewPatientPage() {
     { value: "ru", label: "Russian" },
     { value: "bn", label: "Bengali" },
     { value: "te", label: "Telugu" },
-    { value: "ta", label: "Tamil" },
-    { value: "mr", label: "Marathi" },
-    { value: "gu", label: "Gujarati" },
-    { value: "kn", label: "Kannada" },
-    { value: "ml", label: "Malayalam" },
-    { value: "pa", label: "Punjabi" }
-  ]
+    { value: "ta", "label": "Tamil" },
+    { value: "mr", "label": "Marathi" },
+    { value: "gu", "label": "Gujarati" },
+    { value: "kn", "label": "Kannada" },
+    { value: "ml", "label": "Malayalam" },
+    { value: "pa", "label": "Punjabi" },
+  ];
 
   const frequencyOptions = [
     { value: "daily", label: "Daily" },
     { value: "twice_daily", label: "Twice Daily" },
     { value: "three_times_daily", label: "Three Times Daily" },
     { value: "custom", label: "Custom" },
-  ]
+  ];
 
-  // Validate form data
-  const validateForm = () => {
-    const newErrors: Record<string, string> = {}
+  const formProgress = useMemo(() => {
+    let completedFields = 0;
+    const totalFields = 7;
+    if (formData.name.trim()) completedFields++;
+    if (formData.phoneNumber && /^\+?[\d\s\-\(\)]+$/.test(formData.phoneNumber)) completedFields++;
+    if (formData.medicationName.trim()) completedFields++;
+    if (formData.dosage.trim()) completedFields++;
+    if (formData.timeSlots.length > 0) completedFields++;
+    if (formData.language) completedFields++;
+    if (formData.voiceProfile) completedFields++;
+    return (completedFields / totalFields) * 100;
+  }, [formData]);
 
-    if (!formData.phoneNumber.trim()) {
-      newErrors.phoneNumber = "Phone number is required"
-    } else if (!/^\+?[\d\s\-\(\)]+$/.test(formData.phoneNumber)) {
-      newErrors.phoneNumber = "Please enter a valid phone number"
-    }
-
-    if (!formData.name.trim()) {
-      newErrors.name = "Patient name is required"
-    }
-
-    if (!formData.medicationName.trim()) {
-      newErrors.medicationName = "Medication name is required"
-    }
-
-    if (!formData.dosage.trim()) {
-      newErrors.dosage = "Dosage is required"
-    }
-
-    if (formData.timeSlots.length === 0) {
-      newErrors.timeSlots = "At least one call time is required"
-    }
-
-    if (!formData.startDate) {
-      newErrors.startDate = "Start date is required"
-    }
-
-    if (formData.endDate && new Date(formData.endDate) <= new Date(formData.startDate)) {
-      newErrors.endDate = "End date must be after start date"
-    }
-
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
-  }
-
-  // Calculate form completion progress
-  const calculateProgress = () => {
-    let completedFields = 0
-    const totalFields = 7 // 7 required fields
-
-    // Phone number validation
-    if (formData.phoneNumber.trim() && /^\+?[\d\s\-\(\)]+$/.test(formData.phoneNumber)) {
-      completedFields++
-    }
-
-    // Name validation
-    if (formData.name.trim()) {
-      completedFields++
-    }
-
-    // Medication name validation
-    if (formData.medicationName.trim()) {
-      completedFields++
-    }
-
-    // Dosage validation
-    if (formData.dosage.trim()) {
-      completedFields++
-    }
-
-    // Time slots validation
-    if (formData.timeSlots.length > 0) {
-      completedFields++
-    }
-
-    // Language validation (always true since it has a default value)
-    completedFields++
-
-    // Voice profile validation
-    if (formData.voiceProfile) {
-      completedFields++
-    }
-
-    const progress = (completedFields / totalFields) * 100
-    setFormProgress(progress)
-  }
 
   const updateFormData = (field: string, value: string | string[]) => {
-    setFormData((prev) => ({ ...prev, [field]: value }))
-    // Clear error for this field when user starts typing
+    setFormData((prev) => ({ ...prev, [field]: value }));
     if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: "" }))
+      setErrors((prev) => ({ ...prev, [field]: "" }));
     }
-    setTimeout(calculateProgress, 100)
-  }
+  };
 
   const addTimeSlot = () => {
     if (!currentTimeSlot) {
-      setErrors(prev => ({ ...prev, timeSlots: "Please select a time" }))
-      return
+      setErrors((prev) => ({ ...prev, timeSlots: "Please select a time first." }));
+      return;
     }
-    
     if (formData.timeSlots.includes(currentTimeSlot)) {
-      setErrors(prev => ({ ...prev, timeSlots: "This time is already added" }))
-      return
+      setErrors((prev) => ({ ...prev, timeSlots: "This time has already been added." }));
+      return;
     }
 
-    const newTimeSlots = [...formData.timeSlots, currentTimeSlot].sort()
-    updateFormData("timeSlots", newTimeSlots)
-    setCurrentTimeSlot("")
-    setErrors(prev => ({ ...prev, timeSlots: "" }))
-  }
+    const newTimeSlots = [...formData.timeSlots, currentTimeSlot].sort();
+    updateFormData("timeSlots", newTimeSlots);
+    setCurrentTimeSlot("");
+    setErrors((prev) => ({ ...prev, timeSlots: "" }));
+  };
 
   const removeTimeSlot = (time: string) => {
-    const newTimeSlots = formData.timeSlots.filter((t) => t !== time)
-    updateFormData("timeSlots", newTimeSlots)
-  }
+    updateFormData("timeSlots", formData.timeSlots.filter((t) => t !== time));
+  };
+  
+  const validateForm = () => {
+    const newErrors: Record<string, string> = {};
+    if (!formData.name.trim()) newErrors.name = "Patient name is required";
+    if (!formData.phoneNumber.trim()) newErrors.phoneNumber = "Phone number is required";
+    else if (!/^\+?[\d\s\-\(\)]+$/.test(formData.phoneNumber)) newErrors.phoneNumber = "Please enter a valid phone number";
+    if (!formData.medicationName.trim()) newErrors.medicationName = "Medication name is required";
+    if (!formData.dosage.trim()) newErrors.dosage = "Dosage is required";
+    if (formData.timeSlots.length === 0) newErrors.timeSlots = "At least one call time is required";
+    if (formData.endDate && new Date(formData.endDate) <= new Date(formData.startDate)) {
+      newErrors.endDate = "End date must be after the start date";
+    }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   const previewVoice = async () => {
+    setNotification(null);
     if (!formData.name || !formData.voiceProfile) {
-      alert("Please enter patient name and select a voice first")
-      return
+      setNotification({ type: 'error', message: 'Please enter a patient name and select a voice first.' });
+      return;
     }
-
-    setIsPreviewingVoice(true)
-
+    setIsPreviewingVoice(true);
     try {
-      const previewText = `Hello ${formData.name}, this is your medication reminder. Time to take your ${formData.medicationName || 'medicine'}!`
-      
-      const response = await fetch('/api/test/murf-voice', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+      const previewText = `Hello ${formData.name}, this is a reminder to take your ${formData.medicationName || 'medicine'}.`;
+      const response = await fetch(`/api/test/murf-voice`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          text: previewText,
-          language: formData.language,
-          voiceProfile: formData.voiceProfile
+            text: previewText,
+            language: formData.language,
+            voiceProfile: formData.voiceProfile,
         }),
-      })
-
-      const result = await response.json()
-
+      });
+      const result = await response.json();
       if (response.ok && result.success) {
-        alert(`✅ Voice preview generated successfully!\n\nText: "${previewText}"\n\nVoice: ${formData.voiceProfile}`)
+        setNotification({ type: 'success', message: 'Voice preview generated successfully!' });
       } else {
-        alert(`❌ Voice preview failed: ${result.error || 'Unknown error'}`)
+        setNotification({ type: 'error', message: `Voice preview failed: ${result.error || 'Unknown error'}` });
       }
     } catch (error) {
-      console.error('Voice preview error:', error)
-      alert("❌ Voice preview failed. Please check your connection and try again.")
+      console.error("Voice preview error:", error);
+      setNotification({ type: 'error', message: 'An unexpected error occurred during preview.' });
     } finally {
-      setIsPreviewingVoice(false)
+      setIsPreviewingVoice(false);
     }
-  }
+  };
 
   const submitForm = async () => {
-    // Basic validation
-    if (!formData.phoneNumber || !formData.name || !formData.language || !formData.voiceProfile || 
-        !formData.medicationName || !formData.dosage || formData.timeSlots.length === 0) {
-      alert("Please fill in all required fields")
-      return
+    setNotification(null);
+    if (!validateForm()) {
+        setNotification({ type: 'error', message: 'Please fix the errors before submitting.' });
+        return;
     }
 
-    // Validate phone number format
-    if (!/^\+?[\d\s\-\(\)]+$/.test(formData.phoneNumber)) {
-      alert("Please enter a valid phone number")
-      return
-    }
-
-    // Validate end date if provided
-    if (formData.endDate && new Date(formData.endDate) <= new Date(formData.startDate)) {
-      alert("End date must be after start date")
-      return
-    }
-
-    setIsSubmitting(true)
+    setIsSubmitting(true);
 
     try {
-      // Prepare data matching backend structure exactly
-      const patientData = {
-        phoneNumber: formData.phoneNumber.trim(),
-        name: formData.name.trim(),
-        language: formData.language,
-        medicationName: formData.medicationName.trim(),
-        dosage: formData.dosage.trim(),
-        frequency: formData.frequency,
-        timeSlots: formData.timeSlots,
-        instructions: formData.instructions.trim(),
-        startDate: formData.startDate,
-        endDate: formData.endDate || null,
-        voiceProfile: formData.voiceProfile
-      }
-
-      console.log("Submitting data to backend:", patientData)
-
-      // Call backend API to create patient and schedule calls
-      const response = await fetch('/api/patients', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(patientData),
-      })
-
-      const result = await response.json()
+      const digitsOnly = formData.phoneNumber.replace(/\D/g, '');
+      const last10Digits = digitsOnly.slice(-10);
+      const formattedPhoneNumber = `+91${last10Digits}`;
       
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to create patient and schedule calls')
+      // *** THE FIX IS HERE ***
+      // The payload now sends formData.timeSlots directly,
+      // as it's already an array of "HH:mm" strings, which matches the TIME[] type.
+      const patientData = {
+        ...formData,
+        phoneNumber: formattedPhoneNumber, 
+        // No conversion is needed for timeSlots. Send the array as is.
+        timeSlots: formData.timeSlots,
+        endDate: formData.endDate || null,
+      };
+
+      const response = await fetch(`${API_URL}/patients`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patientData),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || "Failed to create patient.");
       }
 
-      if (result.success) {
-        // Add to local context for immediate UI update
-        addPatient({
-          id: result.data.patient.id,
-          name: result.data.patient.name,
-          phone: result.data.patient.phone_number,
-          language: result.data.patient.language_preference,
-          voiceClone: formData.voiceProfile,
-          medications: [formData.medicationName],
-        })
+      addPatient({
+        id: result.data.patient.id,
+        name: result.data.patient.name,
+        phone: formattedPhoneNumber,
+        language: result.data.patient.language_preference,
+        voiceClone: formData.voiceProfile,
+        medications: [formData.medicationName],
+      });
+      
+      router.push(`/calls?patient=${result.data.patient.id}&new=true`);
 
-        // Show success with scheduled calls info
-        const callCount = result.data.scheduledCalls?.length || 0
-        alert(`✅ Patient created and calls scheduled successfully!\n\n• Patient: ${formData.name}\n• Medication: ${formData.medicationName} ${formData.dosage}\n• Calls scheduled: ${callCount}\n• Next call: ${formData.timeSlots[0]}`)
-        
-        router.push(`/calls?patient=${result.data.patient.id}&new=true`)
-      } else {
-        throw new Error(result.error || 'Failed to create patient and schedule calls')
-      }
     } catch (error) {
-      console.error('Error creating patient and scheduling calls:', error)
-      alert(`❌ Error: ${error instanceof Error ? error.message : 'Unknown error occurred'}`)
+      console.error("Error creating patient:", error);
+      setNotification({ type: 'error', message: `Error: ${error instanceof Error ? error.message : "An unknown error occurred."}`});
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
-  }
+  };
 
   return (
     <TooltipProvider>
@@ -354,7 +280,6 @@ export default function AddNewPatientPage() {
         <ResponsiveNavigation />
 
         <div className="container mx-auto px-4 py-4 lg:py-8">
-          {/* Mobile-Optimized Page Header */}
           <div className="flex flex-col space-y-4 mb-6 lg:mb-8 lg:flex-row lg:items-center lg:space-y-0 lg:space-x-4">
             <Button variant="outline" size="sm" asChild className="self-start bg-transparent">
               <Link href="/patients">
@@ -363,241 +288,150 @@ export default function AddNewPatientPage() {
               </Link>
             </Button>
             <div className="flex-1">
-              <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">Add New Patient & Schedule Calls</h1>
-              <p className="text-gray-600 text-sm lg:text-base">Create patient profile and schedule medication reminder calls in one step</p>
+              <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">
+                Add New Patient & Schedule Calls
+              </h1>
+              <p className="text-gray-600 text-sm lg:text-base">
+                Create a profile and schedule medication reminders in one go.
+              </p>
             </div>
             <div className="text-left lg:text-right">
               <p className="text-sm text-gray-600">Form Completion</p>
               <div className="flex items-center space-x-2 mt-1">
                 <Progress value={formProgress} className="w-24 h-2" />
-                <span className="text-sm font-medium text-gray-700">{Math.round(formProgress)}%</span>
+                <span className="text-sm font-medium text-gray-700">
+                  {Math.round(formProgress)}%
+                </span>
               </div>
             </div>
           </div>
-
+          
           <div className="grid lg:grid-cols-3 gap-6 lg:gap-8">
-            {/* Main Form */}
             <div className="lg:col-span-2 space-y-6">
-              {/* Patient Information */}
-              <Card className="modern-card">
+              <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <User className="w-5 h-5" />
-                    Patient Information
+                    <User className="w-5 h-5" /> Patient Information
                   </CardTitle>
-                  <CardDescription>Basic patient details and contact information</CardDescription>
+                  <CardDescription>
+                    Basic patient details and contact information
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="name">Full Name *</Label>
-                      <Input
-                        id="name"
-                        placeholder="John Doe"
-                        value={formData.name}
-                        onChange={(e) => updateFormData("name", e.target.value)}
-                        className={`rounded-xl ${errors.name ? 'border-red-500' : ''}`}
-                      />
-                      {errors.name && (
-                        <p className="text-sm text-red-500 flex items-center gap-1">
-                          <AlertCircle className="w-3 h-3" />
-                          {errors.name}
-                        </p>
-                      )}
+                      <Input id="name" placeholder="John Doe" value={formData.name} onChange={(e) => updateFormData("name", e.target.value)} className={errors.name ? "border-red-500" : ""} />
+                      {errors.name && <p className="text-sm text-red-500 flex items-center gap-1"><AlertCircle className="w-3 h-3" />{errors.name}</p>}
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="phoneNumber">Phone Number *</Label>
-                      <Input
-                        id="phoneNumber"
-                        placeholder="+1234567890"
-                        value={formData.phoneNumber}
-                        onChange={(e) => updateFormData("phoneNumber", e.target.value)}
-                        className={`rounded-xl ${errors.phoneNumber ? 'border-red-500' : ''}`}
-                      />
-                      {errors.phoneNumber && (
-                        <p className="text-sm text-red-500 flex items-center gap-1">
-                          <AlertCircle className="w-3 h-3" />
-                          {errors.phoneNumber}
-                        </p>
-                      )}
+                      <Input id="phoneNumber" placeholder="98765 43210" value={formData.phoneNumber} onChange={(e) => updateFormData("phoneNumber", e.target.value)} className={errors.phoneNumber ? "border-red-500" : ""} />
+                      {errors.phoneNumber && <p className="text-sm text-red-500 flex items-center gap-1"><AlertCircle className="w-3 h-3" />{errors.phoneNumber}</p>}
                     </div>
                   </div>
                   <div className="grid sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="language">Language *</Label>
                       <Select value={formData.language} onValueChange={(value) => updateFormData("language", value)}>
-                        <SelectTrigger className="rounded-xl">
-                          <SelectValue placeholder="Select language" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {languageOptions.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
+                        <SelectTrigger><SelectValue placeholder="Select language" /></SelectTrigger>
+                        <SelectContent>{languageOptions.map((option) => (<SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>))}</SelectContent>
                       </Select>
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="voiceProfile">Voice Profile *</Label>
                       <Select value={formData.voiceProfile} onValueChange={(value) => updateFormData("voiceProfile", value)}>
-                        <SelectTrigger className="rounded-xl">
-                          <SelectValue placeholder="Select voice" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {voiceOptions.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
+                        <SelectTrigger><SelectValue placeholder="Select voice" /></SelectTrigger>
+                        <SelectContent>{voiceOptions.map((option) => (<SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>))}</SelectContent>
                       </Select>
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
-              {/* Medication Information */}
-              <Card className="modern-card">
+              <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Pill className="w-5 h-5" />
-                    Medication Information
-                  </CardTitle>
-                  <CardDescription>Medication details and dosage information</CardDescription>
+                    <CardTitle className="flex items-center gap-2"><Pill className="w-5 h-5"/>Medication & Schedule</CardTitle>
+                    <CardDescription>Medication details and dosage information</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="grid sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="medicationName">Medication Name *</Label>
-                      <Input
-                        id="medicationName"
-                        placeholder="Aspirin"
-                        value={formData.medicationName}
-                        onChange={(e) => updateFormData("medicationName", e.target.value)}
-                        className={`rounded-xl ${errors.medicationName ? 'border-red-500' : ''}`}
-                      />
-                      {errors.medicationName && (
-                        <p className="text-sm text-red-500 flex items-center gap-1">
-                          <AlertCircle className="w-3 h-3" />
-                          {errors.medicationName}
-                        </p>
-                      )}
+                    <div className="grid sm:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="medicationName">Medication Name *</Label>
+                            <Input id="medicationName" placeholder="Aspirin" value={formData.medicationName} onChange={(e)=>updateFormData("medicationName", e.target.value)} className={errors.medicationName ? "border-red-500" : ""}/>
+                            {errors.medicationName && <p className="text-sm text-red-500 flex items-center gap-1"><AlertCircle className="w-3 h-3"/>{errors.medicationName}</p>}
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="dosage">Dosage *</Label>
+                            <Input id="dosage" placeholder="100mg" value={formData.dosage} onChange={(e)=>updateFormData("dosage", e.target.value)} className={errors.dosage ? "border-red-500" : ""}/>
+                            {errors.dosage && <p className="text-sm text-red-500 flex items-center gap-1"><AlertCircle className="w-3 h-3"/>{errors.dosage}</p>}
+                        </div>
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="dosage">Dosage *</Label>
-                      <Input
-                        id="dosage"
-                        placeholder="100mg"
-                        value={formData.dosage}
-                        onChange={(e) => updateFormData("dosage", e.target.value)}
-                        className={`rounded-xl ${errors.dosage ? 'border-red-500' : ''}`}
-                      />
-                      {errors.dosage && (
-                        <p className="text-sm text-red-500 flex items-center gap-1">
-                          <AlertCircle className="w-3 h-3" />
-                          {errors.dosage}
-                        </p>
-                      )}
+                    <div className="grid sm:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="frequency">Frequency *</Label>
+                            <Select value={formData.frequency} onValueChange={(value)=>updateFormData("frequency", value)}>
+                                <SelectTrigger><SelectValue placeholder="Select frequency"/></SelectTrigger>
+                                <SelectContent>{frequencyOptions.map(o=><SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="startDate">Start Date *</Label>
+                            <Input id="startDate" type="date" value={formData.startDate} onChange={(e)=>updateFormData("startDate", e.target.value)}/>
+                        </div>
                     </div>
-                  </div>
-                  <div className="grid sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="frequency">Frequency *</Label>
-                      <Select value={formData.frequency} onValueChange={(value) => updateFormData("frequency", value)}>
-                        <SelectTrigger className="rounded-xl">
-                          <SelectValue placeholder="Select frequency" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {frequencyOptions.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                    <div className="grid sm:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="endDate">End Date (Optional)</Label>
+                            <Input id="endDate" type="date" value={formData.endDate} onChange={(e)=>updateFormData("endDate", e.target.value)} className={errors.endDate ? "border-red-500" : ""}/>
+                             {errors.endDate && <p className="text-sm text-red-500 flex items-center gap-1"><AlertCircle className="w-3 h-3"/>{errors.endDate}</p>}
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="instructions">Instructions</Label>
+                            <Textarea id="instructions" placeholder="Take with food..." value={formData.instructions} onChange={(e)=>updateFormData("instructions", e.target.value)} rows={3}/>
+                        </div>
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="startDate">Start Date *</Label>
-                      <Input
-                        id="startDate"
-                        type="date"
-                        value={formData.startDate}
-                        onChange={(e) => updateFormData("startDate", e.target.value)}
-                        className="rounded-xl"
-                      />
-                    </div>
-                  </div>
-                  <div className="grid sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="endDate">End Date (Optional)</Label>
-                      <Input
-                        id="endDate"
-                        type="date"
-                        value={formData.endDate}
-                        onChange={(e) => updateFormData("endDate", e.target.value)}
-                        className="rounded-xl"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="instructions">Instructions</Label>
-                      <Textarea
-                        id="instructions"
-                        placeholder="Take with food, avoid alcohol..."
-                        value={formData.instructions}
-                        onChange={(e) => updateFormData("instructions", e.target.value)}
-                        className="rounded-xl"
-                        rows={3}
-                      />
-                    </div>
-                  </div>
                 </CardContent>
               </Card>
 
-              {/* Call Schedule */}
-              <Card className="modern-card">
+              <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <Clock className="w-5 h-5" />
-                    Call Schedule
+                    <Clock className="w-5 h-5" /> Call Times
                   </CardTitle>
-                  <CardDescription>Set up medication reminder call times</CardDescription>
+                  <CardDescription>
+                    Set the specific times for medication reminders each day.
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="flex items-center space-x-2">
-                    <Input
-                      type="time"
-                      value={currentTimeSlot}
-                      onChange={(e) => setCurrentTimeSlot(e.target.value)}
-                      className="rounded-xl flex-1"
-                    />
-                    <Button onClick={addTimeSlot} size="sm" className="rounded-xl">
+                  <div className="flex items-start space-x-2">
+                    <div className="flex-grow space-y-1">
+                      <Input type="time" value={currentTimeSlot} onChange={(e) => setCurrentTimeSlot(e.target.value)} className={`rounded-xl ${errors.timeSlots ? "border-red-500" : ""}`} />
+                      {errors.timeSlots && (
+                        <p className="text-sm text-red-500 flex items-center gap-1">
+                            <AlertCircle className="w-3 h-3" /> {errors.timeSlots}
+                        </p>
+                      )}
+                    </div>
+                    <Button onClick={addTimeSlot} size="icon" className="rounded-xl flex-shrink-0">
                       <Plus className="w-4 h-4" />
                     </Button>
                   </div>
-                  
-                  {errors.timeSlots && (
-                    <p className="text-sm text-red-500 flex items-center gap-1">
-                      <AlertCircle className="w-3 h-3" />
-                      {errors.timeSlots}
-                    </p>
-                  )}
-                  
+
                   {formData.timeSlots.length > 0 && (
-                    <div className="space-y-2">
+                    <div className="space-y-2 pt-2">
                       <Label>Scheduled Times:</Label>
                       <div className="flex flex-wrap gap-2">
                         {formData.timeSlots.map((time, index) => (
-                          <Badge key={index} variant="secondary" className="rounded-xl">
-                            {time}
-                            <Button
-                              variant="ghost"
-                              size="sm"
+                          <Badge key={index} variant="secondary" className="rounded-xl text-sm py-1 px-3">
+                            {formatDisplayTime(time)}
+                            <button
                               onClick={() => removeTimeSlot(time)}
-                              className="h-auto p-0 ml-1 hover:bg-transparent"
+                              className="ml-2 p-0.5 rounded-full hover:bg-red-100 dark:hover:bg-red-900"
+                              aria-label={`Remove ${formatDisplayTime(time)}`}
                             >
-                              <X className="w-3 h-3" />
-                            </Button>
+                              <X className="w-3 h-3 text-gray-600 dark:text-gray-300 hover:text-red-500" />
+                            </button>
                           </Badge>
                         ))}
                       </div>
@@ -607,103 +441,57 @@ export default function AddNewPatientPage() {
               </Card>
             </div>
 
-            {/* Sidebar */}
             <div className="space-y-6">
-              {/* Voice Preview */}
-              <Card className="modern-card">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Volume2 className="w-5 h-5" />
-                    Voice Preview
-                  </CardTitle>
-                  <CardDescription>Test the selected voice profile</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <Button
-                    onClick={previewVoice}
-                    disabled={isPreviewingVoice || !formData.name || !formData.voiceProfile}
-                    className="w-full rounded-xl"
-                    variant="outline"
-                  >
-                    {isPreviewingVoice ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
-                        Generating...
-                      </>
-                    ) : (
-                      <>
-                        <Play className="w-4 h-4 mr-2" />
-                        Preview Voice
-                      </>
-                    )}
-                  </Button>
-                  
-                  {previewResult && (
-                    <div className="p-3 bg-gray-50 rounded-lg border">
-                      <p className="text-sm whitespace-pre-line">{previewResult}</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2"><Volume2 className="w-5 h-5"/>Voice Preview</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <Button onClick={previewVoice} disabled={isPreviewingVoice || !formData.name} className="w-full" variant="outline">
+                            {isPreviewingVoice ? (<><div className="w-4 h-4 border-2 border-t-transparent border-current animate-spin rounded-full mr-2"/>Generating...</>) : (<><Play className="w-4 h-4 mr-2"/>Preview Voice</>)}
+                        </Button>
+                    </CardContent>
+                </Card>
 
-              {/* Summary */}
-              <Card className="modern-card">
-                <CardHeader>
-                  <CardTitle>Summary</CardTitle>
-                  <CardDescription>What will be created</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Patient:</span>
-                    <span className="text-sm font-medium">{formData.name || "Not set"}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Medication:</span>
-                    <span className="text-sm font-medium">{formData.medicationName || "Not set"}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Calls Scheduled:</span>
-                    <span className="text-sm font-medium">{formData.timeSlots.length}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Voice:</span>
-                    <span className="text-sm font-medium">
-                      {voiceOptions.find(v => v.value === formData.voiceProfile)?.label || "Not set"}
-                    </span>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Submit Button */}
-              <Card className="modern-card">
-                <CardContent className="pt-6">
-                  <Button
-                    onClick={submitForm}
-                    disabled={isSubmitting || formProgress < 100}
-                    className="w-full rounded-xl echocare-gradient text-lg py-6"
-                    size="lg"
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                        Creating Patient & Scheduling Calls...
-                      </>
-                    ) : (
-                      <>
-                        <Save className="w-5 h-5 mr-2" />
-                        Create Patient & Schedule Calls
-                      </>
+                <Card>
+                    <CardHeader><CardTitle>Summary</CardTitle></CardHeader>
+                    <CardContent className="space-y-2 text-sm">
+                        <div className="flex justify-between"><span>Patient:</span><span className="font-medium text-right">{formData.name || "—"}</span></div>
+                        <div className="flex justify-between"><span>Medication:</span><span className="font-medium text-right">{formData.medicationName || "—"}</span></div>
+                        <div className="flex justify-between"><span>Daily Calls:</span><span className="font-medium">{formData.timeSlots.length}</span></div>
+                        <div className="flex justify-between"><span>Voice:</span><span className="font-medium text-right">{voiceOptions.find(v => v.value === formData.voiceProfile)?.label.split(" - ")[0] || "—"}</span></div>
+                    </CardContent>
+                </Card>
+              
+                <Card>
+                    <CardContent className="pt-6">
+                    {notification && (
+                        <div className={`p-3 rounded-lg mb-4 flex items-start gap-2 text-sm ${
+                            notification.type === 'success' ? 'bg-green-100 border border-green-200 text-green-800' : 'bg-red-100 border border-red-200 text-red-800'
+                        }`}>
+                        {notification.type === 'success' ? <CheckCircle className="w-5 h-5 flex-shrink-0" /> : <AlertCircle className="w-5 h-5 flex-shrink-0" />}
+                        <span className="flex-1">{notification.message}</span>
+                        </div>
                     )}
-                  </Button>
-                  <p className="text-xs text-gray-500 text-center mt-2">
-                    This will create the patient profile and automatically schedule all medication reminder calls
-                  </p>
-                </CardContent>
-              </Card>
+
+                    <Button
+                        onClick={submitForm}
+                        disabled={isSubmitting || formProgress < 100}
+                        className="w-full rounded-xl echocare-gradient text-lg py-6"
+                        size="lg"
+                    >
+                        {isSubmitting ? (
+                            <><div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />Creating Patient...</>
+                        ) : (
+                            <><Save className="w-5 h-5 mr-2" />Create Patient & Schedule</>
+                        )}
+                    </Button>
+                    </CardContent>
+                </Card>
             </div>
           </div>
         </div>
       </div>
     </TooltipProvider>
-  )
+  );
 }
