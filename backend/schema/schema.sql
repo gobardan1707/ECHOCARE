@@ -1,10 +1,10 @@
--- ECHOCARE Database Schema (Idempotent)
--- Supports patient medication reminders, health checks, and call scheduling
+-- ECHOCARE Database Schema
+-- This schema supports patient medication reminders, health checks, and call scheduling
 
 -- Enable necessary extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- Patients table
+-- Patients table - stores patient information
 CREATE TABLE IF NOT EXISTS patients (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     phone_number VARCHAR(20) UNIQUE NOT NULL,
@@ -23,24 +23,24 @@ CREATE TABLE IF NOT EXISTS patients (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Medication schedules table
+-- Medication schedules table - stores medication timing and details
 CREATE TABLE IF NOT EXISTS medication_schedules (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     patient_id UUID NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
     medication_name VARCHAR(255) NOT NULL,
     dosage VARCHAR(100) NOT NULL,
-    frequency VARCHAR(50) NOT NULL,
-    time_slots TIME[] NOT NULL,
-    days_of_week INTEGER[] DEFAULT '{1,2,3,4,5,6,7}',
+    frequency VARCHAR(50) NOT NULL, -- 'daily', 'twice_daily', 'three_times_daily', 'custom'
+    time_slots TIME[] NOT NULL, -- Array of times when medication should be taken
+    days_of_week INTEGER[] DEFAULT '{1,2,3,4,5,6,7}', -- 1=Monday, 7=Sunday
     instructions TEXT,
     start_date DATE NOT NULL,
-    end_date DATE,
+    end_date DATE, -- NULL for ongoing medication
     is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Call schedules table
+-- Call schedules table - stores scheduled reminder calls
 CREATE TABLE IF NOT EXISTS call_schedules (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     patient_id UUID NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
@@ -50,51 +50,57 @@ CREATE TABLE IF NOT EXISTS call_schedules (
     status VARCHAR(20) DEFAULT 'scheduled' CHECK (status IN ('scheduled', 'in_progress', 'completed', 'failed', 'cancelled')),
     twilio_call_sid VARCHAR(100),
     duration_seconds INTEGER,
-    call_result VARCHAR(50),
+    call_result VARCHAR(50), -- 'answered', 'no_answer', 'busy', 'failed'
     notes TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Health checks table
+-- Health checks table - stores daily health updates from patients
 CREATE TABLE IF NOT EXISTS health_checks (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     patient_id UUID NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
     call_schedule_id UUID REFERENCES call_schedules(id) ON DELETE CASCADE,
     check_date DATE NOT NULL,
     check_time TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-
+    
+    -- Health metrics
     blood_pressure_systolic INTEGER,
     blood_pressure_diastolic INTEGER,
     heart_rate INTEGER,
     blood_sugar_level DECIMAL(5,2),
     temperature DECIMAL(4,2),
     weight DECIMAL(5,2),
-
+    
+    -- Subjective health indicators
     pain_level INTEGER CHECK (pain_level >= 1 AND pain_level <= 10),
     energy_level INTEGER CHECK (energy_level >= 1 AND energy_level <= 10),
     mood VARCHAR(50),
     sleep_hours DECIMAL(3,1),
-
+    
+    -- Medication adherence
     medications_taken_today BOOLEAN,
     missed_medications TEXT[],
     side_effects TEXT[],
-
+    
+    -- Symptoms and concerns
     symptoms TEXT[],
     concerns TEXT,
-
+    
+    -- Voice recording metadata
     voice_recording_url TEXT,
     transcription TEXT,
-
+    
+    -- AI analysis results
     ai_analysis TEXT,
     risk_level VARCHAR(20) CHECK (risk_level IN ('low', 'medium', 'high', 'critical')),
     recommendations TEXT[],
-
+    
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Medication adherence table
+-- Medication adherence log - tracks actual medication intake
 CREATE TABLE IF NOT EXISTS medication_adherence (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     patient_id UUID NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
@@ -109,7 +115,7 @@ CREATE TABLE IF NOT EXISTS medication_adherence (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Voice recordings table
+-- Voice recordings table - stores call recordings and transcriptions
 CREATE TABLE IF NOT EXISTS voice_recordings (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     call_schedule_id UUID NOT NULL REFERENCES call_schedules(id) ON DELETE CASCADE,
@@ -123,7 +129,7 @@ CREATE TABLE IF NOT EXISTS voice_recordings (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Alerts table
+-- Alerts and notifications table
 CREATE TABLE IF NOT EXISTS alerts (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     patient_id UUID NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
@@ -138,7 +144,7 @@ CREATE TABLE IF NOT EXISTS alerts (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- System logs table
+-- System logs table - for debugging and monitoring
 CREATE TABLE IF NOT EXISTS system_logs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     level VARCHAR(10) NOT NULL CHECK (level IN ('debug', 'info', 'warn', 'error')),
@@ -149,7 +155,7 @@ CREATE TABLE IF NOT EXISTS system_logs (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Indexes
+-- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_patients_phone ON patients(phone_number);
 CREATE INDEX IF NOT EXISTS idx_patients_active ON patients(is_active);
 CREATE INDEX IF NOT EXISTS idx_medication_schedules_patient ON medication_schedules(patient_id);
@@ -166,16 +172,6 @@ CREATE INDEX IF NOT EXISTS idx_alerts_unread ON alerts(is_read) WHERE is_read = 
 CREATE INDEX IF NOT EXISTS idx_system_logs_level ON system_logs(level);
 CREATE INDEX IF NOT EXISTS idx_system_logs_created ON system_logs(created_at);
 
--- Drop existing triggers if present (idempotent)
-DROP TRIGGER IF EXISTS update_patients_updated_at ON patients;
-DROP TRIGGER IF EXISTS update_medication_schedules_updated_at ON medication_schedules;
-DROP TRIGGER IF EXISTS update_call_schedules_updated_at ON call_schedules;
-DROP TRIGGER IF EXISTS update_health_checks_updated_at ON health_checks;
-DROP TRIGGER IF EXISTS update_alerts_updated_at ON alerts;
-
--- Drop existing function if present
-DROP FUNCTION IF EXISTS update_updated_at_column;
-
 -- Create updated_at trigger function
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
@@ -183,25 +179,11 @@ BEGIN
     NEW.updated_at = NOW();
     RETURN NEW;
 END;
-$$ LANGUAGE 'plpgsql';
+$$ language 'plpgsql';
 
--- Apply triggers
-CREATE TRIGGER update_patients_updated_at
-BEFORE UPDATE ON patients
-FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
-CREATE TRIGGER update_medication_schedules_updated_at
-BEFORE UPDATE ON medication_schedules
-FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
-CREATE TRIGGER update_call_schedules_updated_at
-BEFORE UPDATE ON call_schedules
-FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
-CREATE TRIGGER update_health_checks_updated_at
-BEFORE UPDATE ON health_checks
-FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
-CREATE TRIGGER update_alerts_updated_at
-BEFORE UPDATE ON alerts
-FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+-- Apply updated_at triggers to relevant tables
+CREATE TRIGGER update_patients_updated_at BEFORE UPDATE ON patients FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_medication_schedules_updated_at BEFORE UPDATE ON medication_schedules FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_call_schedules_updated_at BEFORE UPDATE ON call_schedules FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_health_checks_updated_at BEFORE UPDATE ON health_checks FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_alerts_updated_at BEFORE UPDATE ON alerts FOR EACH ROW EXECUTE FUNCTION update_updated_at_column(); 

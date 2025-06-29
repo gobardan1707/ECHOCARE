@@ -1,5 +1,4 @@
-import { supabase } from '../config/database.js';
-
+import { supabase } from "../config/database.js";
 
 export class PatientController {
   // Create patient and medication schedule
@@ -8,7 +7,7 @@ export class PatientController {
       const {
         phoneNumber,
         name,
-        language = 'en',
+        language = "en",
         medicationName,
         dosage,
         frequency,
@@ -16,105 +15,103 @@ export class PatientController {
         instructions,
         startDate,
         endDate,
-        voiceProfile
+        voiceProfile,
       } = req.body;
 
       // Validate required fields
       if (!phoneNumber || !name || !medicationName || !dosage || !timeSlots) {
         return res.status(400).json({
           success: false,
-          error: 'Missing required fields: phoneNumber, name, medicationName, dosage, timeSlots'
+          error:
+            "Missing required fields: phoneNumber, name, medicationName, dosage, timeSlots",
         });
       }
 
       // Insert patient
       const { data: patient, error: patientError } = await supabase
-        .from('patients')
+        .from("patients")
         .insert({
           phone_number: phoneNumber,
           name: name,
           language_preference: language,
-          timezone: 'UTC'
+          timezone: "IST",
         })
         .select()
         .single();
 
       if (patientError) {
-        console.error('Patient creation error:', patientError);
+        console.error("Patient creation error:", patientError);
         return res.status(500).json({
           success: false,
-          error: 'Failed to create patient'
+          error: "Failed to create patient",
         });
       }
 
       // Insert medication schedule
       const { data: medication, error: medicationError } = await supabase
-        .from('medication_schedules')
+        .from("medication_schedules")
         .insert({
           patient_id: patient.id,
           medication_name: medicationName,
           dosage: dosage,
-          frequency: frequency || 'daily',
+          frequency: frequency || "daily",
           time_slots: timeSlots,
           instructions: instructions,
-          start_date: startDate || new Date().toISOString().split('T')[0],
-          end_date: endDate
+          start_date: startDate || new Date().toISOString().split("T")[0],
+          end_date: endDate,
         })
         .select()
         .single();
 
       if (medicationError) {
-        console.error('Medication schedule creation error:', medicationError);
+        console.error("Medication schedule creation error:", medicationError);
         return res.status(500).json({
           success: false,
-          error: 'Failed to create medication schedule'
+          error: "Failed to create medication schedule",
         });
       }
-
-      // Schedule calls for each time slot
       const scheduledCalls = [];
-      for (const timeSlot of timeSlots) {
-        const [hours, minutes] = timeSlot.split(':');
-        const scheduledTime = new Date();
-        scheduledTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
-        
-        // If time has passed today, schedule for tomorrow
-        if (scheduledTime <= new Date()) {
-          scheduledTime.setDate(scheduledTime.getDate() + 1);
-        }
 
-        const { data: callSchedule, error: callError } = await supabase
-          .from('call_schedules')
-          .insert({
-            patient_id: patient.id,
-            medication_schedule_id: medication.id,
-            scheduled_time: scheduledTime.toISOString(),
-            call_type: 'medication_reminder',
-            status: 'scheduled'
-          })
-          .select()
-          .single();
+       const baseDateString = startDate || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
 
-        if (!callError) {
-          scheduledCalls.push(callSchedule);
-        }
+    for (const timeSlot of timeSlots) {
+      // 1. Combine the date from the request with the time from the time slot.
+      const [hours, minutes] = timeSlot.split(":");
+      const scheduledQueryString = `${baseDateString} ${hours}:${minutes}:00+05:30`;
+      const { data: callSchedule, error: callError } = await supabase
+        .from("call_schedules")
+        .insert({
+          patient_id: patient.id,
+          medication_schedule_id: medication.id,
+          scheduled_time: scheduledQueryString, 
+          call_type: "medication_reminder",
+          status: "scheduled",
+        })
+        .select()
+        .single();
+
+      if (!callError) {
+        scheduledCalls.push(callSchedule);
+      } else {
+        // It's good practice to log errors inside the loop
+        console.error(`Error scheduling call for ${timeSlot}:`, callError);
       }
+    }
 
       res.status(201).json({
         success: true,
-        message: 'Patient and medication schedule created successfully',
+        message: "Patient and medication schedule created successfully",
         data: {
           patient,
           medication,
-          scheduledCalls
-        }
+          scheduledCalls,
+        },
       });
-
     } catch (error) {
-      console.error('Create patient and medication error:', error);
+      console.error("Create patient and medication error:", error);
       res.status(500).json({
         success: false,
-        error: 'Internal server error'
+        error: "Internal server error",
       });
     }
   }
@@ -123,27 +120,27 @@ export class PatientController {
   static async getPatients(req, res) {
     try {
       const { data: patients, error } = await supabase
-        .from('patients')
-        .select('*')
-        .eq('is_active', true);
+        .from("patients")
+        .select("*")
+        .eq("is_active", true);
 
       if (error) {
-        console.error('Get patients error:', error);
+        console.error("Get patients error:", error);
         return res.status(500).json({
           success: false,
-          error: 'Failed to fetch patients'
+          error: "Failed to fetch patients",
         });
       }
 
       res.status(200).json({
         success: true,
-        data: patients
+        data: patients,
       });
     } catch (error) {
-      console.error('Get patients error:', error);
+      console.error("Get patients error:", error);
       res.status(500).json({
         success: false,
-        error: 'Internal server error'
+        error: "Internal server error",
       });
     }
   }
@@ -154,31 +151,33 @@ export class PatientController {
       const { id } = req.params;
 
       const { data: patient, error: patientError } = await supabase
-        .from('patients')
-        .select(`
+        .from("patients")
+        .select(
+          `
           *,
           medication_schedules (*),
           call_schedules (*)
-        `)
-        .eq('id', id)
+        `
+        )
+        .eq("id", id)
         .single();
 
       if (patientError || !patient) {
         return res.status(404).json({
           success: false,
-          error: 'Patient not found'
+          error: "Patient not found",
         });
       }
 
       res.status(200).json({
         success: true,
-        data: patient
+        data: patient,
       });
     } catch (error) {
-      console.error('Get patient error:', error);
+      console.error("Get patient error:", error);
       res.status(500).json({
         success: false,
-        error: 'Internal server error'
+        error: "Internal server error",
       });
     }
   }
@@ -190,28 +189,28 @@ export class PatientController {
       const updateData = req.body;
 
       const { data: patient, error } = await supabase
-        .from('patients')
+        .from("patients")
         .update(updateData)
-        .eq('id', id)
+        .eq("id", id)
         .select()
         .single();
 
       if (error || !patient) {
         return res.status(404).json({
           success: false,
-          error: 'Patient not found'
+          error: "Patient not found",
         });
       }
 
       res.status(200).json({
         success: true,
-        data: patient
+        data: patient,
       });
     } catch (error) {
-      console.error('Update patient error:', error);
+      console.error("Update patient error:", error);
       res.status(500).json({
         success: false,
-        error: 'Internal server error'
+        error: "Internal server error",
       });
     }
   }
@@ -222,28 +221,28 @@ export class PatientController {
       const { id } = req.params;
 
       const { data: patient, error } = await supabase
-        .from('patients')
+        .from("patients")
         .update({ is_active: false })
-        .eq('id', id)
+        .eq("id", id)
         .select()
         .single();
 
       if (error || !patient) {
         return res.status(404).json({
           success: false,
-          error: 'Patient not found'
+          error: "Patient not found",
         });
       }
 
       res.status(200).json({
         success: true,
-        message: 'Patient deactivated successfully'
+        message: "Patient deactivated successfully",
       });
     } catch (error) {
-      console.error('Delete patient error:', error);
+      console.error("Delete patient error:", error);
       res.status(500).json({
         success: false,
-        error: 'Internal server error'
+        error: "Internal server error",
       });
     }
   }
