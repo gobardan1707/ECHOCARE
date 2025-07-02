@@ -98,9 +98,14 @@ export const handleFollowUp = async (req, res) => {
     console.log(callSession);
     const summary = await GeminiService.generateConversationSummary(callSession);
     console.log("Generated summary:", summary);
-    await supabase .from("call_schedules").insert({
-      status: "completed",
-      notes: summary,})
+    await supabase
+  .from("call_schedules")
+  .update({
+    status: "completed",
+    notes: summary,
+  })
+  .eq("twilio_call_sid", callSid);
+
     TwilioService.activeCalls.delete(callSid);
   } catch (error) {
     console.error("Error handling follow-up:", error);

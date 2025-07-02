@@ -455,23 +455,82 @@ static async handleHealthCheck(twiml, callSession, res) {
       callSession.language
     );
 
-    // Use Twilio's built-in TTS for the final response
-    twiml.say({
-      voice: 'alice',
-      language: callSession.language
-    }, finalResponse);
+    // Save AI response
+    callSession.conversationHistory.push({
+      speaker: 'ai',
+      text: finalResponse,
+      timestamp: new Date()
+    });
 
-    // Goodbye message
     const goodbyeText = this.getGoodbyeText(callSession);
-    twiml.say({
-      voice: 'alice',
-      language: callSession.language
-    }, goodbyeText);
+    const audioChunks = [];
 
-    // End the call
-    twiml.hangup();
-    res.type('text/xml');
-    res.send(twiml.toString());
+    const cleanupListeners = () => {
+      murfWebSocket.removeAllListeners('audioChunk');
+      murfWebSocket.removeAllListeners('streamingComplete');
+    };
+
+    cleanupListeners();
+    await murfWebSocket.connect(callSession.patientId);
+    murfWebSocket.clearContext(true, callSession.patientId);
+
+    murfWebSocket.on('audioChunk', ({ audioChunk }) => {
+      audioChunks.push(audioChunk);
+    });
+
+    return new Promise(async (resolve, reject) => {
+      let resolved = false;
+
+      murfWebSocket.on('streamingComplete', async ({ isFinal }) => {
+        if (isFinal && !resolved) {
+          resolved = true;
+          cleanupListeners();
+
+          const completeAudio = Buffer.concat(audioChunks);
+          const filename = `${uuidv4()}.wav`;
+          const audioDir = path.join(__dirname, '..', 'public', 'audio');
+          const filePath = path.join(audioDir, filename);
+
+          if (!fs.existsSync(audioDir)) fs.mkdirSync(audioDir, { recursive: true });
+          fs.writeFileSync(filePath, completeAudio);
+
+          const audioUrl = `${process.env.BASE_URL}/audio/${filename}`;
+          twiml.play(audioUrl);
+
+          // Add goodbye message using Twilio TTS for quick end
+          twiml.say({
+            voice: 'alice',
+            language: callSession.language
+          }, goodbyeText);
+
+          twiml.hangup();
+          res.type('text/xml').send(twiml.toString());
+
+          setTimeout(() => {
+            if (fs.existsSync(filePath)) {
+              fs.unlinkSync(filePath);
+            }
+          }, 5000);
+
+          this.activeCalls.delete(callSid);
+          resolve();
+        }
+      });
+
+      await murfWebSocket.startRealTimeTTS(
+        finalResponse,
+        callSession.language,
+        callSession.voiceProfile
+      );
+
+      setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+          cleanupListeners();
+          reject(new Error('WebSocket TTS timeout'));
+        }
+      }, 20000);
+    });
 
   } catch (error) {
     console.error('Error generating final response:', error);
@@ -484,10 +543,10 @@ static async handleHealthCheck(twiml, callSession, res) {
 
     twiml.hangup();
     this.activeCalls.delete(callSid);
-    res.type('text/xml');
-    res.send(twiml.toString());
+    res.type('text/xml').send(twiml.toString());
   }
 }
+
 
 
   static getGreetingText(callSession) {
