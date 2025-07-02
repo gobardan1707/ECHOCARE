@@ -96,7 +96,7 @@ export const handleFollowUp = async (req, res) => {
     }
     await TwilioService.handleFollowUp(req, res);
     console.log(callSession);
-    const summary = GeminiService.generateConversationSummary(callSession);
+    const summary = await GeminiService.generateConversationSummary(callSession);
     console.log("Generated summary:", summary);
     await supabase .from("call_schedules").insert({
       status: "completed",
