@@ -153,7 +153,7 @@ class MurfWebSocket extends EventEmitter {
       await this.connect(this.contextId);
     }
 
-    const voiceId = voiceProfile || MurfService.getVoiceForLanguage(language);
+    const voiceId = voiceProfile;
     const session = this.contextId;
 
     this.streamingSessions.set(session, {
@@ -263,33 +263,7 @@ class MurfWebSocket extends EventEmitter {
 const murfWebSocket = new MurfWebSocket();
 
 export class MurfService {
-  // Language to voice mapping for different languages
-  static getVoiceForLanguage(language) {
-    const voiceMap = {
-      'en': 'en-US-amara', // English - using official voice ID
-      'hi': 'hi-IN-ayushi', // Hindi
-      'es': 'es-ES-maria', // Spanish
-      'fr': 'fr-FR-sophie', // French
-      'de': 'de-DE-anna', // German
-      'it': 'it-IT-giulia', // Italian
-      'pt': 'pt-BR-ana', // Portuguese
-      'ja': 'ja-JP-yuki', // Japanese
-      'ko': 'ko-KR-mina', // Korean
-      'zh': 'zh-CN-xiaomei', // Chinese
-      'ar': 'ar-SA-fatima', // Arabic
-      'ru': 'ru-RU-natalia', // Russian
-      'bn': 'bn-IN-priya', // Bengali
-      'te': 'te-IN-lakshmi', // Telugu
-      'ta': 'ta-IN-kavya', // Tamil
-      'mr': 'mr-IN-anjali', // Marathi
-      'gu': 'gu-IN-diya', // Gujarati
-      'kn': 'kn-IN-shruti', // Kannada
-      'ml': 'ml-IN-meera', // Malayalam
-      'pa': 'pa-IN-simran'  // Punjabi
-    };
-    
-    return voiceMap[language] || voiceMap['en'];
-  }
+  
 
   // Traditional REST API methods (fallback)
   static async generateAudio(text, language = 'en', voiceProfile = null) {
@@ -447,24 +421,94 @@ export class MurfService {
     }
   }
 
-  static async getAvailableVoices(language = 'en') {
-    try {
-      const response = await axios.get(
-        `${process.env.MURF_BASE_URL}/studio/voices?language=${language}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${process.env.MURF_API_KEY}`
-          }
-        }
-      );
-
-      return response.data.voices;
-    } catch (error) {
-      console.error('Error fetching available voices:', error);
-      throw error;
+  static async getAvailableVoices(language) {
+  try {
+    if (!language) {
+      throw new Error('Language parameter is required');
     }
+    
+    console.log(`🎤 Fetching voice models for language: ${language}`);
+    
+    const languageMapping = {
+      'en': 'en-US',
+      'hi': 'hi-IN', 
+      'es': 'es-ES',
+      'fr': 'fr-FR',
+      'de': 'de-DE',
+      'it': 'it-IT',
+      'pt': 'pt-BR',
+      'ja': 'ja-JP',
+      'ko': 'ko-KR',
+      'zh': 'zh-CN',
+      'ar': 'ar-SA',
+      'ru': 'ru-RU',
+      'bn': 'bn-IN',
+      'te': 'te-IN',
+      'ta': 'ta-IN',
+      'mr': 'mr-IN',
+      'gu': 'gu-IN',
+      'kn': 'kn-IN',
+      'ml': 'ml-IN',
+      'pa': 'pa-IN'
+    };
+
+    const targetLocale = languageMapping[language];
+    
+    if (!targetLocale) {
+      throw new Error(`Unsupported language: ${language}`);
+    }
+    
+   
+    const response = await axios.get(
+      'https://api.murf.ai/v1/speech/voices',
+      {
+        headers: {
+          'api-key': `${process.env.MURF_API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 10000
+      }
+    );
+
+    if (response.data && Array.isArray(response.data)) {
+      
+      const filteredVoices = response.data.filter(voice => {
+       
+        return voice.supportedLocales && voice.supportedLocales[targetLocale];
+      });
+
+    
+      const voices = filteredVoices.map(voice => {
+        const localeInfo = voice.supportedLocales[targetLocale];
+        return {
+          voiceId: voice.voiceId,
+          voiceName: voice.displayName || voice.voiceId.split('-').pop(),
+          supportedLocales: Object.keys(voice.supportedLocales),
+          voiceStyles: localeInfo.availableStyles || voice.availableStyles || ['Conversational'],
+          sampleAudio: null, 
+          language: language,
+          description: voice.description || '',
+          gender: voice.gender,
+          accent: voice.accent,
+          displayLanguage: voice.displayLanguage
+        };
+      });
+
+      console.log(`✅ Found ${voices.length} voice models for ${language} (${targetLocale})`);
+      return voices;
+    } else {
+      console.log(`⚠ No voices found in API response`);
+      return [];
+    }
+  } catch (error) {
+    console.error(`❌ Error fetching voices for ${language}:`, error.message);
+    throw new Error(`Failed to fetch voices for ${language}: ${error.message}`);
   }
 }
+
+
+}
+
 
 // Export the WebSocket instance for direct access
 export { murfWebSocket };

@@ -2,6 +2,7 @@ import express from 'express';
 import controller from '../controllers/controller.js';
 import * as callController from '../controllers/callController.js';
 import { PatientController } from '../controllers/patientController.js';
+import { get } from 'http';
 
 const router = express.Router();
 
@@ -14,6 +15,8 @@ router.get('/patients', PatientController.getPatients);
 router.get('/patients/:id', PatientController.getPatient);
 router.put('/patients/:id', PatientController.updatePatient);
 router.delete('/patients/:id', PatientController.deletePatient);
+
+router.get('/api/voice-models', callController.getAvailableVoices);
 
 // Call management routes
 router.post('/calls/initiate', callController.initiateCall);

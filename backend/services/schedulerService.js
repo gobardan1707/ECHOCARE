@@ -66,7 +66,7 @@ export class SchedulerService {
         dosage: callSchedule.medication_schedules.dosage,
         instructions: callSchedule.medication_schedules.instructions,
         patientId: callSchedule.patient_id,
-        voiceProfile: null // Will use default for language
+        voiceProfile: callSchedule.patients.voice_profile
       };
 
       // Initiate the call

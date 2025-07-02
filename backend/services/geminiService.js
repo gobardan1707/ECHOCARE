@@ -147,6 +147,11 @@ export class GeminiService {
               }: ${entry.message}`
           )
           .join("\n")}
+
+        The user is conversing in ${callSession.language}.
+        The conversation is about medication reminders and health check-ins.
+        Analyse if he his alright or not.
+        
         
         Create a professional medical summary that includes:
         

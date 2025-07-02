@@ -35,6 +35,7 @@ export class PatientController {
           name: name,
           language_preference: language,
           timezone: "IST",
+          voice_profile: voiceProfile 
         })
         .select()
         .single();

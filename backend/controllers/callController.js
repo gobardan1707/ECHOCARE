@@ -171,7 +171,7 @@ export const testMurfVoice = async (req, res) => {
       audioUrl,
       text,
       language,
-      voiceProfile: voiceProfile || MurfService.getVoiceForLanguage(language),
+      voiceProfile: voiceProfile 
     });
   } catch (error) {
     console.error("Error testing Murf voice:", error);
@@ -281,7 +281,7 @@ export const testWebSocketTTS = async (req, res) => {
       sessionId,
       text,
       language,
-      voiceProfile: voiceProfile || MurfService.getVoiceForLanguage(language),
+      voiceProfile: voiceProfile,
       message: "WebSocket TTS streaming started using official Murf AI API",
       webSocketStatus: MurfService.getWebSocketStatus(),
     });
@@ -323,7 +323,7 @@ export const testRealTimeStreaming = async (req, res) => {
       sessionId,
       text,
       language,
-      voiceProfile: voiceProfile || MurfService.getVoiceForLanguage(language),
+      voiceProfile: voiceProfile,
       message: "Real-time text streaming started using official Murf AI API",
       webSocketStatus: MurfService.getWebSocketStatus(),
     });

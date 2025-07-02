@@ -63,7 +63,7 @@ statusCallbackEvent: ['initiated', 'ringing', 'answered', 'in-progress', 'comple
         customParameters: {
           patientId,
           language,
-          voiceProfile: voiceProfile || MurfService.getVoiceForLanguage(language)
+          voiceProfile: voiceProfile
         }
       });
 
