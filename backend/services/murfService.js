@@ -5,7 +5,7 @@ import { EventEmitter } from 'events';
 
 dotenv.config();
 
-// WebSocket-based real-time TTS service using official Murf AI API
+
 class MurfWebSocket extends EventEmitter {
   constructor() {
     super();
@@ -19,73 +19,78 @@ class MurfWebSocket extends EventEmitter {
     this.contextId = null;
   }
 
-  // Initialize WebSocket connection to Murf AI using official API
+  // Connect to Murf AI WebSocket
   async connect(contextId = null) {
-  if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) {
+    if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) {
+      return new Promise((resolve, reject) => {
+        if (this.ws.readyState === WebSocket.OPEN) return resolve();
+        this.ws.once('open', () => resolve());
+        this.ws.once('error', (err) => reject(err));
+      });
+    }
+
+    console.log('Connecting to Murf AI WebSocket for real-time TTS...');
+    this.contextId = contextId;
+
     return new Promise((resolve, reject) => {
-      if (this.ws.readyState === WebSocket.OPEN) return resolve();
-      this.ws.once('open', () => resolve());
-      this.ws.once('error', (err) => reject(err));
+      const wsUrl = `wss://api.murf.ai/v1/speech/stream-input?api-key=${process.env.MURF_API_KEY}&sample_rate=44100&channel_type=MONO&format=WAV`;
+      this.ws = new WebSocket(wsUrl);
+
+      this.ws.on('open', () => {
+        console.log('✅ Connected to Murf AI WebSocket for real-time TTS');
+        this.isConnected = true;
+        this.reconnectAttempts = 0;
+        this.emit('connected');
+
+        if (this.contextId) {
+          const clearContextMsg = {
+            clear_context: {
+              clear: false,
+              context_id: this.contextId
+            }
+          };
+          this.ws.send(JSON.stringify(clearContextMsg));
+          console.log('📡 Sent clear_context with context_id:', this.contextId);
+        }
+
+        resolve();
+      });
+
+      this.ws.on('message', (data) => {
+        const parsed = JSON.parse(data);
+        console.log('📥 Received WebSocket data:', parsed);
+        this.handleMessage(parsed);
+      });
+
+      this.ws.on('close', () => {
+        console.log('❌ Murf AI WebSocket connection closed');
+        this.isConnected = false;
+        this.emit('disconnected');
+        this.reconnect();
+      });
+
+      this.ws.on('error', (error) => {
+        console.error('❌ Murf AI WebSocket error:', error);
+        this.emit('error', error);
+        reject(error);
+      });
     });
   }
 
-  console.log('Connecting to Murf AI WebSocket for real-time TTS...');
-  this.contextId = contextId;
-
-  return new Promise((resolve, reject) => {
-    const wsUrl = `wss://api.murf.ai/v1/speech/stream-input?api-key=${process.env.MURF_API_KEY}&sample_rate=44100&channel_type=MONO&format=WAV`;
-    this.ws = new WebSocket(wsUrl);
-
-    this.ws.on('open', () => {
-      console.log('✅ Connected to Murf AI WebSocket for real-time TTS');
-      this.isConnected = true;
-      this.reconnectAttempts = 0;
-      this.emit('connected');
-      resolve();
-    });
-
-    this.ws.on('message', (data) => {
-      this.handleMessage(JSON.parse(data));
-    });
-
-    this.ws.on('close', () => {
-      console.log('❌ Murf AI WebSocket connection closed');
-      this.isConnected = false;
-      this.emit('disconnected');
-      this.reconnect();
-    });
-
-    this.ws.on('error', (error) => {
-      console.error('❌ Murf AI WebSocket error:', error);
-      this.emit('error', error);
-      reject(error);
-    });
-  });
-}
-
-
-  // Handle incoming WebSocket messages based on official API
   handleMessage(data) {
-    console.log('Received WebSocket data:', data);
-    
     if (data.audio) {
       this.handleAudioChunk(data);
     }
-    
     if (data.final) {
       this.handleStreamingComplete();
     }
-    
     if (data.error) {
       this.handleError(data.error);
     }
   }
 
-  // Handle real-time audio chunks
   handleAudioChunk(data) {
     const audioBytes = Buffer.from(data.audio, 'base64');
-    
-    // Emit audio chunk for real-time playback
     this.emit('audioChunk', {
       audioChunk: audioBytes,
       isFinal: false,
@@ -93,25 +98,21 @@ class MurfWebSocket extends EventEmitter {
     });
   }
 
-  // Handle streaming completion
   handleStreamingComplete() {
     this.emit('streamingComplete', {
       isFinal: true,
       timestamp: Date.now()
     });
-    
-    // Clean up
+
     this.audioChunks.clear();
     this.streamingSessions.clear();
   }
 
-  // Handle errors
   handleError(error) {
     console.error('❌ Murf AI WebSocket error:', error);
     this.emit('error', error);
   }
 
-  // Send voice configuration
   async sendVoiceConfig(voiceId, style = 'Conversational', rate = 0, pitch = 0, variation = 1) {
     if (!this.isConnected) {
       await this.connect();
@@ -119,43 +120,42 @@ class MurfWebSocket extends EventEmitter {
 
     const voiceConfigMsg = {
       voice_config: {
-        voiceId: voiceId,
-        style: style,
-        rate: rate,
-        pitch: pitch,
-        variation: variation
-      }
+        voiceId,
+        style,
+        rate,
+        pitch,
+        variation
+      },
+      context_id: this.contextId 
     };
 
     console.log('🎤 Sending voice config:', voiceConfigMsg);
     this.ws.send(JSON.stringify(voiceConfigMsg));
   }
 
-  // Stream text using official API format
   async streamText(text, voiceId, end = true) {
     if (!this.isConnected) {
       await this.connect();
     }
 
     const textMsg = {
-      text: text,
-      end: end
+      text,
+      end,
+      context_id: this.contextId // Correct key
     };
 
     console.log('📝 Streaming text:', textMsg);
     this.ws.send(JSON.stringify(textMsg));
   }
 
-  // Start real-time TTS streaming with voice config
-  async startRealTimeTTS(text, language = 'en', voiceProfile = null, sessionId = null) {
+  async startRealTimeTTS(text, language = 'en', voiceProfile = null) {
     if (!this.isConnected) {
-      await this.connect(sessionId);
+      await this.connect(this.contextId);
     }
 
     const voiceId = voiceProfile || MurfService.getVoiceForLanguage(language);
-    const session = sessionId || this.generateSessionId();
+    const session = this.contextId;
 
-    // Store streaming session
     this.streamingSessions.set(session, {
       text,
       language,
@@ -164,33 +164,24 @@ class MurfWebSocket extends EventEmitter {
       status: 'streaming'
     });
 
-    // Send voice configuration first
     await this.sendVoiceConfig(voiceId);
-    
-    // Stream the text
     await this.streamText(text, voiceId, true);
-    
+
     console.log(`🎤 Started real-time TTS streaming for session: ${session}`);
     return session;
   }
 
-  // Stream text in chunks for live conversations
   async streamTextChunks(textChunks, voiceId, sessionId = null) {
     if (!this.isConnected) {
       await this.connect(sessionId);
     }
 
     const session = sessionId || this.generateSessionId();
-
-    // Send voice configuration first
     await this.sendVoiceConfig(voiceId);
 
-    // Stream each chunk
     for (let i = 0; i < textChunks.length; i++) {
       const isLastChunk = i === textChunks.length - 1;
       await this.streamText(textChunks[i], voiceId, isLastChunk);
-      
-      // Small delay between chunks for natural flow
       if (!isLastChunk) {
         await this.delay(100);
       }
@@ -199,27 +190,39 @@ class MurfWebSocket extends EventEmitter {
     return session;
   }
 
-  // Stop streaming session
   stopStreaming(sessionId) {
     if (this.isConnected && this.streamingSessions.has(sessionId)) {
-      // Send end signal
       this.streamText('', null, true);
       this.streamingSessions.delete(sessionId);
       console.log(`⏹️ Stopped streaming for session: ${sessionId}`);
     }
   }
 
-  // Generate unique session ID
   generateSessionId() {
     return `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
 
-  // Reconnect logic
+  clearContext(clear = true, contextId = null) {
+  if (!this.isConnected || !this.ws) {
+    console.warn('⚠️ WebSocket is not connected. Cannot send clear_context.');
+    return;
+  }
+
+  const message = {
+    clear_context: {
+      clear,
+      context_id: contextId || this.contextId
+    }
+  };
+
+  this.ws.send(JSON.stringify(message));
+  console.log('🧹 Sent clear_context:', message);
+}
+
   async reconnect() {
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
       this.reconnectAttempts++;
       console.log(`🔄 Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`);
-      
       setTimeout(async () => {
         try {
           await this.connect(this.contextId);
@@ -233,12 +236,10 @@ class MurfWebSocket extends EventEmitter {
     }
   }
 
-  // Utility function for delays
   delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
-  // Close WebSocket connection
   disconnect() {
     if (this.ws) {
       this.ws.close();
@@ -247,7 +248,6 @@ class MurfWebSocket extends EventEmitter {
     }
   }
 
-  // Get connection status
   getConnectionStatus() {
     return {
       isConnected: this.isConnected,

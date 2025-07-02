@@ -3,7 +3,7 @@ import { GeminiService } from "../services/geminiService.js";
 import { MurfService } from "../services/murfService.js";
 import { supabase } from "../config/database.js";
 
-// Initiate a medication reminder call
+
 export const initiateCall = async (req, res) => {
   try {
     const {
@@ -18,7 +18,7 @@ export const initiateCall = async (req, res) => {
       voiceProfile,
     } = req.body;
 
-    // Validate required fields
+    
     if (!phoneNumber || !patientName || !medicationName || !medicationTime) {
       return res.status(400).json({
         error:
@@ -57,7 +57,7 @@ export const initiateCall = async (req, res) => {
   }
 };
 
-// Handle incoming call webhook
+
 export const handleCallWebhook = async (req, res) => {
   try {
     req.sid = req.body.CallSid;
@@ -71,7 +71,7 @@ export const handleCallWebhook = async (req, res) => {
   }
 };
 
-// Process patient response (health update)
+
 export const processPatientResponse = async (req, res) => {
   try {
     await TwilioService.processPatientResponse(req, res);
@@ -101,7 +101,7 @@ export const handleFollowUp = async (req, res) => {
     await supabase .from("call_schedules").insert({
       status: "completed",
       notes: summary,})
-    TwilioService.activeCalls.delete(callSid); // Clean up session after follow-up
+    TwilioService.activeCalls.delete(callSid);
   } catch (error) {
     console.error("Error handling follow-up:", error);
     res.status(500).json({

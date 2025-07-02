@@ -14,6 +14,7 @@ const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TO
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+
 export class TwilioService {
   // Store active call sessions for real-time processing
   static activeCalls = new Map();
@@ -126,15 +127,20 @@ statusCallbackEvent: ['initiated', 'ringing', 'answered', 'in-progress', 'comple
 
   try {
     cleanupListeners();
-    await murfWebSocket.connect();
+    await murfWebSocket.connect(callSession.patientId);
 
     murfWebSocket.on('audioChunk', ({ audioChunk }) => {
       audioChunks.push(audioChunk);
     });
 
     return new Promise(async (resolve, reject) => {
+      let resolved = false;
+
       murfWebSocket.on('streamingComplete', async ({ isFinal }) => {
-        if (isFinal) {
+        if (isFinal && !resolved) {
+          resolved = true;
+          cleanupListeners();
+
           const completeAudio = Buffer.concat(audioChunks);
           const filename = `${uuidv4()}.wav`;
           const audioDir = path.join(__dirname, '..', 'public', 'audio');
@@ -145,19 +151,18 @@ statusCallbackEvent: ['initiated', 'ringing', 'answered', 'in-progress', 'comple
 
           const audioUrl = `${process.env.BASE_URL}/audio/${filename}`;
           twiml.play(audioUrl);
-          
 
           callSession.currentStep = 'health_check';
           twiml.redirect({ method: 'POST' }, `${process.env.BASE_URL}/api/calls/webhook`);
           res.type('text/xml').send(twiml.toString());
-           
 
-          cleanupListeners();
-           setTimeout(() => {
+          // Clean up audio file after a short delay
+          setTimeout(() => {
             if (fs.existsSync(filePath)) {
               fs.unlinkSync(filePath);
             }
           }, 5000);
+
           resolve();
         }
       });
@@ -168,9 +173,13 @@ statusCallbackEvent: ['initiated', 'ringing', 'answered', 'in-progress', 'comple
         callSession.voiceProfile
       );
 
+      // Fallback in case streamingComplete is not received
       setTimeout(() => {
-        cleanupListeners();
-        reject(new Error('WebSocket TTS timeout'));
+        if (!resolved) {
+          resolved = true;
+          cleanupListeners();
+          reject(new Error('WebSocket TTS timeout'));
+        }
       }, 20000);
     });
   } catch (error) {
@@ -195,15 +204,21 @@ static async handleHealthCheck(twiml, callSession, res) {
 
   try {
     cleanupListeners();
-    await murfWebSocket.connect();
+    await murfWebSocket.connect(callSession.patientId);
+    murfWebSocket.clearContext(true, callSession.patientId);
 
     murfWebSocket.on('audioChunk', ({ audioChunk }) => {
       audioChunks.push(audioChunk);
     });
 
     return new Promise(async (resolve, reject) => {
+      let resolved = false;
+
       murfWebSocket.on('streamingComplete', async ({ isFinal }) => {
-        if (isFinal) {
+        if (isFinal && !resolved) {
+          resolved = true;
+          cleanupListeners();
+
           const completeAudio = Buffer.concat(audioChunks);
           const filename = `${uuidv4()}.wav`;
           const audioDir = path.join(__dirname, '..', 'public', 'audio');
@@ -215,23 +230,26 @@ static async handleHealthCheck(twiml, callSession, res) {
           const audioUrl = `${process.env.BASE_URL}/audio/${filename}`;
           twiml.play(audioUrl);
 
+          // Gather user speech input after playing the question
           twiml.gather({
             input: 'speech',
             action: `${process.env.BASE_URL}/api/calls/process-response`,
             method: 'POST',
             speechTimeout: 'auto',
-            language: callSession.language === "hi" ? 'hi-IN' : callSession.language,
+            language: callSession.language === 'hi' ? 'hi-IN' : callSession.language,
             enhanced: true,
             speechModel: 'phone_call'
           });
 
           res.type('text/xml').send(twiml.toString());
-          cleanupListeners();
+
+          // Delete audio file after short delay
           setTimeout(() => {
-          if (fs.existsSync(filePath)) {
-            fs.unlinkSync(filePath);
-          }
-        }, 5000);
+            if (fs.existsSync(filePath)) {
+              fs.unlinkSync(filePath);
+            }
+          }, 5000);
+
           resolve();
         }
       });
@@ -243,8 +261,11 @@ static async handleHealthCheck(twiml, callSession, res) {
       );
 
       setTimeout(() => {
-        cleanupListeners();
-        reject(new Error('WebSocket TTS timeout'));
+        if (!resolved) {
+          resolved = true;
+          cleanupListeners();
+          reject(new Error('WebSocket TTS timeout'));
+        }
       }, 20000);
     });
   } catch (error) {
@@ -255,6 +276,7 @@ static async handleHealthCheck(twiml, callSession, res) {
     res.type('text/xml').send(twiml.toString());
   }
 }
+
 
 
   static async processPatientResponse(req, res) {

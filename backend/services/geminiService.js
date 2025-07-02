@@ -184,8 +184,6 @@ export class GeminiService {
       return {
         summary: response.text(),
         generatedAt: new Date().toISOString(),
-        patientId: patientContext.patientId || null,
-        callMetadata: callMetadata,
       };
     } catch (error) {
       console.error("Error generating conversation summary:", error);
