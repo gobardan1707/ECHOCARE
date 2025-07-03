@@ -123,150 +123,93 @@ export class GeminiService {
     }
   }
 
-  static async generateConversationSummary(
-    callSession
-  ) {
-    try {
-      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-      const prompt = `
-        Role: You are a medical conversation analyst creating a concise summary for healthcare records.
-        
-        Patient Information:
-        - Name: ${callSession.patientName}
-        - Medication: ${callSession.medicationName}
-        - Dosage: ${callSession.dosage || "Not specified"}
-        - Instructions: ${callSession.instructions || "Not specified"}
+ 
+static async generateConversationSummary(callSession) {
+  try {
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-        Conversation History:
-        ${callSession.conversationHistory
-          .map(
-            (entry, index) =>
-              `${index + 1}. ${
-                entry.speaker === "ai" ? "EchoCare" : "Patient"
-              }: ${entry.message}`
-          )
-          .join("\n")}
+    const prompt = `
+      # ROLE
+      You are a meticulous medical conversation analyst. Your task is to create a structured JSON summary from a call transcript for inclusion in a patient's electronic health record (EHR).
 
-        The user is conversing in ${callSession.language}.
-        The conversation is about medication reminders and health check-ins.
-        Analyse if he his alright or not.
-        
-        
-        Create a professional medical summary that includes:
-        
-        **MEDICATION ADHERENCE:**
-        - Did patient confirm taking medication? (Yes/No/Unclear)
-        - Any reported issues with medication timing or dosage?
-        
-        **HEALTH STATUS:**
-        - Patient's reported symptoms or concerns
-        - Overall health status mentioned (Good/Fair/Poor/Not discussed)
-        - Any side effects reported
-        
-        **KEY CONCERNS:**
-        - Any medical issues that need follow-up
-        - Patient's mood or attitude
-        - Communication clarity (Clear/Somewhat clear/Unclear)
-        
-        **RECOMMENDATIONS:**
-        - Any actions suggested to patient
-        - Follow-up needed? (Yes/No - specify reason)
-        - Doctor consultation recommended? (Yes/No - specify reason)
-        
-        **CALL OUTCOME:**
-        - Successfully completed/Partially completed/Incomplete
-        - Patient cooperation level (Excellent/Good/Fair/Poor)
-        - Technical issues if any
-        
-        Format: Use clear headings and bullet points. Keep it professional and factual. Total length should be 150-200 words.
-        
-        Important: Only include information that was actually discussed. Do not infer or assume information not present in the conversation.
-      `;
+      # CONTEXT
+      - Patient Name: ${callSession.patientName}
+      - Medication: ${callSession.medicationName}
+      - Dosage: ${callSession.dosage || "Not Specified"}
+      - Instructions: ${callSession.instructions || "Not Specified"}
+      - Original Conversation Language: ${callSession.language}
 
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      return {
-        summary: response.text(),
-        generatedAt: new Date().toISOString(),
-      };
-    } catch (error) {
-      console.error("Error generating conversation summary:", error);
-      throw error;
-    }
-  }
+      - Conversation Transcript:
+      ${callSession.conversationHistory
+        .map(
+          (entry) =>
+            `${entry.speaker === "ai" ? "EchoCare" : "Patient"}: ${entry.text}`
+        )
+        .join("\n")}
 
-  static async analyzeHealthConcerns(conversationHistory, patientContext) {
-    try {
-      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+      # TASK
+      1. Analyze the conversation, which was conducted in ${callSession.language}.
+      2. Extract key information based on the schema below.
+      3. **The entire JSON output, including all string values, MUST be in English.**
+      4. Be factual. Only include information explicitly mentioned in the transcript. Do not infer or assume details. If a topic was not discussed, use "Not Discussed" or an empty array as appropriate.
 
-      const prompt = `
-        Role: You are a healthcare AI analyzing a medication reminder call for potential health concerns.
-        
-        Patient: ${patientContext.name}
-        Medication: ${patientContext.medicationName}
-        Known Conditions: ${
-          patientContext.medicalConditions || "None specified"
-        }
-        Known Allergies: ${patientContext.allergies || "None specified"}
-        
-        Conversation:
-        ${conversationHistory
-          .map(
-            (entry, index) =>
-              `${entry.speaker === "ai" ? "EchoCare" : "Patient"}: ${
-                entry.message
-              }`
-          )
-          .join("\n")}
-        
-        Analyze this conversation and provide:
-        
-        1. **RISK LEVEL**: (LOW/MEDIUM/HIGH/CRITICAL)
-        
-        2. **HEALTH CONCERNS IDENTIFIED**:
-        - List any symptoms mentioned
-        - Note medication adherence issues
-        - Identify potential side effects
-        
-        3. **URGENCY ASSESSMENT**:
-        - Immediate attention needed? (Yes/No)
-        - Can wait for regular appointment? (Yes/No)
-        - Emergency signs present? (Yes/No)
-        
-        4. **RECOMMENDATIONS**:
-        - Contact doctor within: (Hours/Days/Weeks/Not needed)
-        - Monitor specific symptoms: (List if any)
-        - Medication adjustments needed: (Yes/No/Unknown)
-        
-        5. **FOLLOW-UP ACTIONS**:
-        - Schedule earlier medication reminders? (Yes/No)
-        - Increase call frequency? (Yes/No)
-        - Alert emergency contact? (Yes/No)
-        
-        Be conservative in your assessment. When in doubt, recommend medical consultation.
-        Format as structured JSON for easy parsing.
-      `;
+      # OUTPUT INSTRUCTIONS
+      - You MUST respond with a single, valid JSON object and nothing else.
+      - Do NOT include any explanatory text, greetings, or markdown formatting like \`\`\`json.
+      - Adhere strictly to the JSON schema below using camelCase for all keys.
 
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-
-      // Try to parse as JSON, fallback to text if parsing fails
-      let analysis;
-      try {
-        analysis = JSON.parse(response.text());
-      } catch (parseError) {
-        analysis = {
-          raw_analysis: response.text(),
-          parsing_error: true,
-          generated_at: new Date().toISOString(),
-        };
+      # JSON OUTPUT SCHEMA
+      {
+        "medicationAdherence": {
+          "confirmedTakingMedication": "Yes | No | Unclear",
+          "reportedIssues": "A brief string describing any issues with timing or dosage, or 'None' if not mentioned."
+        },
+        "healthStatus": {
+          "reportedSymptoms": ["An array of strings, with each string being a specific symptom or concern mentioned by the patient."],
+          "overallHealthMentioned": "Good | Fair | Poor | Not Discussed",
+          "reportedSideEffects": ["An array of strings listing any potential side effects reported."]
+        },
+        "keyConcerns": {
+          "needsFollowUp": true | false,
+          "followUpReason": "A brief string explaining why a follow-up is needed. Example: 'Patient reported dizziness.'",
+          "patientMood": "Positive | Neutral | Anxious | Sad | Irritable | Not Discussed",
+          "communicationClarity": "Clear | Somewhat Unclear | Unclear"
+        },
+        "callOutcome": {
+          "status": "Completed | Partially Completed | Incomplete",
+          "patientCooperation": "Cooperative | Neutral | Uncooperative",
+          "technicalIssues": "A brief string describing any technical issues, or 'None'."
+        },
+        "narrativeSummary": "A concise, 2-3 sentence professional summary in English of the entire conversation, suitable for a quick review in a medical chart."
       }
+    `;
 
-      return analysis;
-    } catch (error) {
-      console.error("Error analyzing health concerns:", error);
-      throw error;
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const responseText = response.text();
+
+    let summaryData;
+    try {
+      
+      summaryData = JSON.parse(responseText);
+    } catch (parseError) {
+      console.error("Failed to parse JSON summary from AI.", parseError);
+      console.error("Raw AI Response Text:", responseText);
+      summaryData = {
+        parsingError: true,
+        rawSummary: responseText,
+        errorMessage: parseError.message,
+      };
     }
+
+    return {
+      summary: summaryData,
+      generatedAt: new Date().toISOString(),
+    };
+  } catch (error) {
+    console.error("Error generating conversation summary:", error);
+    throw error;
   }
+}
 }

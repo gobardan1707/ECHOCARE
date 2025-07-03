@@ -277,8 +277,6 @@ static async handleHealthCheck(twiml, callSession, res) {
   }
 }
 
-
-
   static async processPatientResponse(req, res) {
   const callSid = req.body.CallSid;
   const patientResponse = req.body.SpeechResult;
@@ -416,8 +414,6 @@ static async handleHealthCheck(twiml, callSession, res) {
     res.type('text/xml').send(twiml.toString());
   }
 }
-
-
 
 
   static async handleFollowUp(req, res) {
