@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -77,29 +77,33 @@ export default function AddNewPatientPage() {
   
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
-  const voiceOptions = [
-    { value: "en-US-amara", label: "Amara - English (US)" },
-    { value: "hi-IN-ayushi", label: "Ayushi - Hindi" },
-    { value: "es-ES-maria", label: "Maria - Spanish" },
-    { value: "fr-FR-sophie", label: "Sophie - French" },
-    { value: "de-DE-anna", label: "Anna - German" },
-    { value: "it-IT-giulia", label: "Giulia - Italian" },
-    { value: "pt-BR-ana", label: "Ana - Portuguese (Brazil)" },
-    { value: "ja-JP-yuki", label: "Yuki - Japanese" },
-    { value: "ko-KR-mina", label: "Mina - Korean" },
-    { value: "zh-CN-xiaomei", label: "Xiaomei - Chinese" },
-    { value: "ar-SA-fatima", label: "Fatima - Arabic" },
-    { value: "ru-RU-natalia", label: "Natalia - Russian" },
-    { value: "bn-IN-priya", label: "Priya - Bengali" },
-    { value: "te-IN-lakshmi", label: "Lakshmi - Telugu" },
-    { value: "ta-IN-kavya", label: "Kavya - Tamil" },
-    { value: "mr-IN-anjali", label: "Anjali - Marathi" },
-    { value: "gu-IN-diya", label: "Diya - Gujarati" },
-    { value: "kn-IN-shruti", label: "Shruti - Kannada" },
-    { value: "ml-IN-meera", label: "Meera - Malayalam" },
-    { value: "pa-IN-simran", label: "Simran - Punjabi" },
-  ];
+  const [voiceModels, setVoiceModels] = useState<{ voiceId: string; voiceName: string}[]>([]);
+  useEffect(() => {
+  fetchVoiceModels("en");
+  
+}, []);
+useEffect(() => {
+  fetchVoiceModels(formData.language);
+}, [formData.language]);
 
+  const fetchVoiceModels = async (language: string) => {
+    setVoiceModels([]);
+    console.log("Fetching voice models for language:", language);
+    try {
+      const response = await fetch(`https://echocare.onrender.com/api/api/voice-models?language=${language}`);
+      if (!response.ok) throw new Error("Failed to fetch voice models");
+      const data = await response.json();
+      console.log("Fetched voice models:", data);
+      setVoiceModels(data.voices);
+      if (data.length > 0) {
+        setFormData((prev) => ({ ...prev, voiceProfile: data[0].voiceId }));
+      }
+    } catch (error) {
+      console.error("Error fetching voice models:", error);
+      setNotification({ type: 'error', message: 'Failed to load voice models. Please try again later.' });
+    }
+  };
+ 
   const languageOptions = [
     { value: "en", label: "English" },
     { value: "hi", label: "Hindi" },
@@ -115,12 +119,12 @@ export default function AddNewPatientPage() {
     { value: "ru", label: "Russian" },
     { value: "bn", label: "Bengali" },
     { value: "te", label: "Telugu" },
-    { value: "ta", "label": "Tamil" },
-    { value: "mr", "label": "Marathi" },
-    { value: "gu", "label": "Gujarati" },
-    { value: "kn", "label": "Kannada" },
-    { value: "ml", "label": "Malayalam" },
-    { value: "pa", "label": "Punjabi" },
+    { value: "ta", label: "Tamil" },
+    { value: "mr", label: "Marathi" },
+    { value: "gu", label: "Gujarati" },
+    { value: "kn", label: "Kannada" },
+    { value: "ml", label: "Malayalam" },
+    { value: "pa", label: "Punjabi" },
   ];
 
   const frequencyOptions = [
@@ -242,6 +246,7 @@ export default function AddNewPatientPage() {
         timeSlots: formData.timeSlots,
         endDate: formData.endDate || null,
       };
+      console.log("Submitting patient data:", patientData);
 
       const response = await fetch(`${API_URL}/patients`, {
         method: "POST",
@@ -333,17 +338,39 @@ export default function AddNewPatientPage() {
                   <div className="grid sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="language">Language *</Label>
-                      <Select value={formData.language} onValueChange={(value) => updateFormData("language", value)}>
-                        <SelectTrigger><SelectValue placeholder="Select language" /></SelectTrigger>
-                        <SelectContent>{languageOptions.map((option) => (<SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>))}</SelectContent>
-                      </Select>
+                      <Select
+  value={formData.language}
+  onValueChange={(value) => {
+    updateFormData("language", value);
+  }}
+>
+  <SelectTrigger><SelectValue placeholder="Select language" /></SelectTrigger>
+  <SelectContent>
+    {languageOptions.map((option) => (
+      <SelectItem key={option.value} value={option.value}>
+        {option.label}
+      </SelectItem>
+    ))}
+  </SelectContent>
+</Select>
+
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="voiceProfile">Voice Profile *</Label>
-                      <Select value={formData.voiceProfile} onValueChange={(value) => updateFormData("voiceProfile", value)}>
-                        <SelectTrigger><SelectValue placeholder="Select voice" /></SelectTrigger>
-                        <SelectContent>{voiceOptions.map((option) => (<SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>))}</SelectContent>
-                      </Select>
+                      <Select
+  value={formData.voiceProfile}
+  onValueChange={(value) => updateFormData("voiceProfile", value)}
+>
+  <SelectTrigger><SelectValue placeholder="Select voice" /></SelectTrigger>
+  <SelectContent>
+    {voiceModels.map((model) => (
+      <SelectItem key={model.voiceId} value={model.voiceId}>
+        {model.voiceName}
+      </SelectItem>
+    ))}
+  </SelectContent>
+</Select>
+
                     </div>
                   </div>
                 </CardContent>
@@ -459,7 +486,7 @@ export default function AddNewPatientPage() {
                         <div className="flex justify-between"><span>Patient:</span><span className="font-medium text-right">{formData.name || "—"}</span></div>
                         <div className="flex justify-between"><span>Medication:</span><span className="font-medium text-right">{formData.medicationName || "—"}</span></div>
                         <div className="flex justify-between"><span>Daily Calls:</span><span className="font-medium">{formData.timeSlots.length}</span></div>
-                        <div className="flex justify-between"><span>Voice:</span><span className="font-medium text-right">{voiceOptions.find(v => v.value === formData.voiceProfile)?.label.split(" - ")[0] || "—"}</span></div>
+                        {/* <div className="flex justify-between"><span>Voice:</span><span className="font-medium text-right">{voiceModels.find(v => v.value === formData.voiceProfile)?.label.split(" - ")[0] || "—"}</span></div> */}
                     </CardContent>
                 </Card>
               
